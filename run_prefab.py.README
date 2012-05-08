@@ -1,0 +1,74 @@
+Wrapper for running and scoring alignment programs on Prefab
+
+The two important files are run_prefab.py (the script itself) and
+prefab4_file_list.txt, which contains a list of all prefab input
+files, their number of sequences and (average, pairwise) sequence
+identity.
+
+Download prefab from http://www.drive5.com/muscle/prefab.htm (and
+qscore from http://www.drive5.com/qscore/). See PREFAB section in
+http://www.ncbi.nlm.nih.gov/pubmed/15034147: Edgar RC. MUSCLE:
+multiple sequence alignment with high accuracy and high throughput.
+Nucleic Acids Res. 2004 Mar 19;32(5):1792-7.
+
+
+
+Creating prefab4_file_list.txt
+==============================
+
+Assuming you have squid's alistat installed:
+
+<code>
+for fbase in $(find ./ref -type f -name [0-9]*_[0-9]* | xargs -n1 basename); do
+   pwidref=$(alistat ./ref/$fbase | awk '/^Average identity:/ {sub(/%/, ""); print $NF}');
+   numseqin=$(grep -c -- '^>' ./in/$fbase);
+   echo "$fbase $numseqin $pwidref";
+done > prefab4_file_list.txt
+</code>
+
+
+
+Running an aligner (run_prefab.py)
+==================================
+
+Call the wrapper like this:
+
+$ ./run_prefab.py \
+ -c "myaligner -in @IN@ -out @OUT@ -more-options -even-more-options" \
+ -o outputdir -v
+
+This would run the program "myaligner" on all of Prefab (replacing
+@IN@ and @OUT@ accordingly) and store resulting alignments and qscore
+files in "outputdir"
+
+To run vanilla Muscle you'd use:
+$ ./run_prefab.py \
+ -c "your-path-to-muscle -in @IN@ -out @OUT@" \
+ -o muscle_out -v
+
+To run ClustalO with hmm-iteration:
+$ ./run_prefab.py \
+ -c "your-path-to-clustalo -i @IN@ -o @OUT@ --hi 1" \
+ -o clustalo_hi-1 -v
+
+
+Existing files will never be overwritten, instead an error message
+will be printed to stderr. Qscore files will be called
+outputdir/prefabid/prefabid.out_qscore.txt. It's up to you to analyse
+the score files afterwards (use prefab4_file_list.txt if you want to
+limit yourself to certain id-ranges). A quick and dirty approach to
+calculate the average qscore would be:
+
+$ find outdir -name  \*out_qscore.txt -exec cat {} \; | \
+  awk -F';' '{sub(/Q=/, ""); s+=$3; n+=1}
+  END {printf "avg. qscore (%d files) = %f\n", n, s/n}'
+
+
+The script allows you to limit the runs to files with a certain
+number of sequences (--min-nseq/--max-nseq) or a certain
+identity-range (--min-id/--max-id).
+
+In doubt try ./run_prefab.py  -h
+
+
+
