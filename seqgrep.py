@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""A grep for sequence files
+"""A grep for sequence files.
 """
 
 
@@ -36,6 +36,9 @@ LOG = logging.getLogger("")
 logging.basicConfig(level=logging.WARN,
                     format='%(levelname)s [%(asctime)s]: %(message)s')
 
+
+
+   
 
 def guess_seqformat(fseq):
     """
@@ -81,19 +84,20 @@ def cmdline_parser():
             "usage: %prog [options]"
     parser = OptionParser(usage=usage)
 
+    choices = ['seq', 'id']
     parser.add_option("-s", "--search-in",
                       dest="search_in",
-                      default="id", choices=['seq', 'id'],
-                      help="Search in sequence or its name")
+                      default="id", choices=choices,
+                      help="Search in sequence or its name (%s)" % (choices))
     parser.add_option("", "--verbose",
                       action="store_true", dest="verbose",
                       help="be verbose")
     parser.add_option("", "--debug",
                       action="store_true", dest="debug",
                       help="debugging")
-    #parser.add_option("-c", "--case",
-    #                  action="store_true", dest="case",
-    #                  help="Make search case sensitive")
+    parser.add_option("-i", "--ignore-case",
+                      action="store_true", dest="ignore_case",
+                      help="Make search case sensitive")
     parser.add_option("-v", "--invert-match",
                       action="store_true", dest="invert_match",
                       help="invert sense of matching")
@@ -126,13 +130,21 @@ def main():
     LOG.debug("pattern_arg=%s" % (pattern_arg))
     LOG.debug("seqfiles_arg=%s" % (seqfiles_arg))
 
-    regexp = re.compile(pattern_arg)
+    if opts.ignore_case:
+        regexp = re.compile(pattern_arg, flags=re.IGNORECASE)
+    else:
+        regexp = re.compile(pattern_arg)
 
+        
     for fseq in seqfiles_arg:
         if not fseq != "" and os.path.exists(fseq):
             LOG.fatal("input file %s does not exist.\n" % fseq)
             sys.exit(1)
 
+    print_file_prefix = False
+    if len(seqfiles_arg)>1:
+        print_file_prefix = True
+        
     for fseq in seqfiles_arg:
         if fseq == "-":
             fhandle = sys.stdin
@@ -158,9 +170,9 @@ def main():
             else:
                 raise ValueError, (
                     "internal error...not sure where to search in")
-
+            
+            target = str(target)
             match = regexp.search(target) 
-            #import pdb; pdb.set_trace()
             print_match = False
             if match and not opts.invert_match:
                 LOG.debug("match.string=%s" % match.string)
@@ -169,15 +181,19 @@ def main():
                 print_match = True
 
             if print_match:
+                #import pdb; pdb.set_trace()
+                prefix=""
+                if print_file_prefix:
+                    prefix = fseq + ":"
                 if fmt == 'fasta':
-                    print ">%s\n%s" % (record.description, record.seq)
+                    print "%s>%s\n%s%s" % (prefix, record.description, prefix, record.seq)
                 else:
-                    print ">%s\n%s" % (record.id, record.seq)
+                    print "%s>%s\n%s%s" % (prefix, record.id, prefix, record.seq)
         if fhandle != sys.stdin:
             fhandle.close()
-
+            
 
 if __name__ == "__main__":
     main()
-    LOG.debug("FIXME: Allow for other filter opts, e.g. length, case-indep., support output format arg.")
+    LOG.debug("FIXME: Add support coloured output, length filtering, support output format arg.")
 
