@@ -23,11 +23,8 @@ from Bio import SeqIO
                                                         
 __author__ = "Andreas Wilm"
 __version__ = "0.1"
-__email__ = "wilma@gis.a-star.edu.sg"
-__copyright__ = ""
-__license__ = ""
-__credits__ = [""]
-__status__ = ""
+__email__ = "andreas.wilm@gmail.com"
+__license__ = "The MIT License (MIT)"
 
 
 #global logger
@@ -36,9 +33,7 @@ LOG = logging.getLogger("")
 logging.basicConfig(level=logging.WARN,
                     format='%(levelname)s [%(asctime)s]: %(message)s')
 
-
-
-   
+  
 
 def guess_seqformat(fseq):
     """

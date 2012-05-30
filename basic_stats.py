@@ -19,10 +19,7 @@ import numpy
 __author__ = "Andreas Wilm"
 __version__ = "0.1"
 __email__ = "andreas.wilm@gmail.com"
-__copyright__ = ""
-__license__ = ""
-__credits__ = [""]
-__status__ = ""
+__license__ = "The MIT License (MIT)"
 
 
 def basic_stats(arr):
