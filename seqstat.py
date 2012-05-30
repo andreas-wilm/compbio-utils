@@ -18,6 +18,7 @@ from operator import itemgetter
 
 #--- third-party imports
 #
+import Bio
 from Bio import SeqIO
 from Bio import Seq
 
@@ -382,5 +383,16 @@ def main():
             
 
 if __name__ == "__main__":
+    if sys.version_info < (2 , 7):
+        sys.stderr.write("WARNING: only tested Python 2.7 so far\n")
+    elif sys.version_info > (2 , 8):
+        sys.stderr.write("WARNING: only tested Python 2.7 so far\n")
+
+    biopython_version = tuple([int(x) for x in Bio.__version__.split('.')])
+    if biopython_version < (1 , 55):
+        sys.stderr.write("WARNING: only tested Biopython 1.55 so far\n")
+    elif biopython_version > (1 , 55):
+        sys.stderr.write("WARNING: only tested Biopython 1.55 so far\n")
+
     main()
     LOG.info("Successful exit")
