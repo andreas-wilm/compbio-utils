@@ -146,6 +146,8 @@ def prune_aln(aln, what, fh_out=sys.stdout):
 
     # FIXME add support for proper alignment output, not just
     # concatenated fasta
+    LOG.info("Keeping the following columns: %s" % (
+        ', '.join([str(x+1) for x in keep_cols])))
     for s in aln:
         fh_out.write(">%s\n" % s.id)
         fh_out.write('%s\n' % ''.join([s.seq[i] for i in keep_cols]))
@@ -167,6 +169,7 @@ def main():
         
     if not opts.aln_in:
         parser.error("Missing input alignment argument")
+        sys.exit(1)
 
     what = None
     if opts.any_gap:
@@ -180,7 +183,7 @@ def main():
         what = 'identical'
     if not what:
         parser.error("No operation selected")
-
+        sys.exit(1)
         
     if opts.aln_in == "-":
         fh_in = sys.stdin
