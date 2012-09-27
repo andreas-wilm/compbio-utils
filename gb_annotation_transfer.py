@@ -85,6 +85,8 @@ def guess_seqformat(fseq):
 
 class PosMap(object):
     """Position map class
+
+    NOTE: all unit-offset!
     """
     
     def __init__(self, seqrecs=None):
@@ -106,8 +108,7 @@ class PosMap(object):
 
     
     def generate(self, seqrecs):
-        """
-        Computes a position map, which is a dict with aligned
+        """Computes a position map, which is a dict with aligned
         positions as main key. Sequence ids are 2nd dim key and their
         corresponding unaligned position is the value
         
@@ -179,17 +180,34 @@ class PosMap(object):
     
     
 
-    def convert(self, src, query):
+    def convert(self, src=None, query=None):
         """Mangles input pos_map and returns a dict containing unaligned
         position matching between src and query ids.
+
+        If query is None, then aligned positions for src are returned.
+
+        Likewise if src is None, then unaligned positions for aligned pos are returned
         """
     
         # FIXME Would this break if we had gap vs gap alignment and
         # some residues following?
-        return dict([(v[src], v[query]) 
-                     for v in self.pos_map.values()])
-    
 
+                
+        if query and src:
+              d = dict([(v[src], v[query]) 
+                         for (k, v) in self.pos_map.iteritems()])
+        elif src:
+            d = dict([(v[src], k) 
+                         for (k, v) in self.pos_map.iteritems()])
+            #for (k, v) in d.iteritems():
+            #    assert k<=v
+        elif query:            
+            d = dict([(k, v[query]) 
+                         for (k, v) in self.pos_map.iteritems()])            
+        else:
+            raise ValueError
+            
+        return d
 
 
 def cmdline_parser():

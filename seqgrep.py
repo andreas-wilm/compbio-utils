@@ -15,6 +15,7 @@ import re
 #--- third-party imports
 #
 from Bio import SeqIO
+from Bio.Seq import Seq
 
 #--- project specific imports
 #
@@ -76,7 +77,7 @@ def cmdline_parser():
 
     # http://docs.python.org/library/optparse.html
     usage = "%prog: " + __doc__ + "\n" \
-            "usage: %prog [options]"
+            "usage: %prog [options] file[s]"
     parser = OptionParser(usage=usage)
 
     choices = ['seq', 'id']
@@ -85,11 +86,17 @@ def cmdline_parser():
                       default="id", choices=choices,
                       help="Search in sequence or its name (%s)" % (choices))
     parser.add_option("", "--verbose",
-                      action="store_true", dest="verbose",
+                      action="store_true", 
+                      dest="verbose",
                       help="be verbose")
     parser.add_option("", "--debug",
-                      action="store_true", dest="debug",
+                      action="store_true", 
+                      dest="debug",
                       help="debugging")
+    parser.add_option("", "--revcomp",
+                      action="store_true", 
+                      dest="revcomp",
+                      help="Reverse complement search string")
     parser.add_option("-i", "--ignore-case",
                       action="store_true", dest="ignore_case",
                       help="Make search case sensitive")
@@ -120,6 +127,9 @@ def main():
     
     # first arg is pattern. rest are files
     pattern_arg = args[0]
+    if opts.revcomp:
+        pattern_arg = str(Seq(pattern_arg).reverse_complement())
+        LOG.info("Pattern after reverse complement: %s" % pattern_arg)
     seqfiles_arg = args[1:]
     LOG.debug("args=%s" % (args))
     LOG.debug("pattern_arg=%s" % (pattern_arg))
@@ -132,7 +142,7 @@ def main():
 
         
     for fseq in seqfiles_arg:
-        if not fseq != "" and os.path.exists(fseq):
+        if fseq != "-" and not os.path.exists(fseq):
             LOG.fatal("input file %s does not exist.\n" % fseq)
             sys.exit(1)
 
@@ -149,7 +159,8 @@ def main():
         fmt = guess_seqformat(fseq)
         if not fmt:
             fmt = 'fasta'
-            
+        LOG.info("Checking file %s (format %s)" % (fseq, fmt))
+        
         for record in SeqIO.parse(fhandle, fmt):
             #LOG.debug("checking seq %s (len %d)" % (record.id, len(record.seq)))
 
