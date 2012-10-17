@@ -189,7 +189,7 @@ def pairwise_identity(s1, s2):
     sequences.
 
     Uppercase your sequence for case insensitivity. For mixed RNA/DNA
-    you might want to replace T's with U'l vice versa.
+    you might want to replace T's with U's vice versa.
     
     Based on ideas from
     http://code.activestate.com/recipes/499304-hamming-distance/
@@ -218,8 +218,9 @@ def comp_pairwise_ident_matrix(seqrecs):
     for i in xrange(nseqs):
         jdists = []
         for j in xrange(0, i):
-            pwid = pairwise_identity(str(seqrecs[i].seq).upper(),
-                                     str(seqrecs[j].seq).upper())
+            s1 = str(seqrecs[i].seq).upper()
+            s2 = str(seqrecs[j].seq).upper()
+            pwid = pairwise_identity(s1, s2)
             jdists.append(pwid)
         jdists.append(None) # self comparison not defined
         mx.append(jdists)
@@ -305,16 +306,18 @@ def main():
         sys.exit(0)
 
         
-    # aligned = true if all raw sequences have same length, but
-    # degapped ones don't
     aligned = False
-    if len(set(seqlens)) == 1 and len(set(seqlens_ungapped)) != 1:
+    if nseqs>1 and len(set(seqlens)) == 1:
+        # add and len(set(seqlens_ungapped)) != 1 to make sure
+        # unaligend sequence length are identical
         aligned = True
         aln_len = seqlens[0] # any will do as we know they're aligned
         pw_id_mx = comp_pairwise_ident_matrix(seqrecs)
 
-                    
-        
+    if not aligned and seqlens != seqlens_ungapped:
+        LOG.warn("Found gaps, but sequences do not seem to be aligned."
+                 " Stats will be for ungapped seqs.")
+         
     # guess type from first entry
     if guess_if_nucleic_acid(seqrecs[0].seq):
         seqtype = 'protein' 
@@ -362,7 +365,8 @@ def main():
             if aligned:
                 # construct list of pairwise ids from fake matrix. 
                 pw_ids = pw_id_mx[i]
-                pw_ids.extend([pw_id_mx[j][i] for j in xrange(i+1, nseqs)])
+                pw_ids.extend([pw_id_mx[j][i] 
+                               for j in xrange(i+1, nseqs)])
                 assert len(pw_ids) == nseqs, (
                     "len(pw_ids)=%d, but expected %d" % (len(pw_ids), nseqs))
 
@@ -372,10 +376,9 @@ def main():
                 (pw_id_max_idx, pw_id_max_val) = argminmax(pw_ids, 'max')
                 pw_ids[i] = 1.1
                 (pw_id_min_idx, pw_id_min_val) = argminmax(pw_ids, 'min')
-                pw_ids[i] = None
+                pw_ids[i] = None # reset even though not strictly necessary
 
-                line += "%s\t%.2f %s\t%.2f %s" % (
-                    seqrecs[i].id,
+                line += "\t%.2f\t%s\t%.2f\t%s" % (
                     pw_id_max_val, seqrecs[pw_id_max_idx].id,
                     pw_id_min_val, seqrecs[pw_id_min_idx].id)
             print line
@@ -383,16 +386,14 @@ def main():
             
 
 if __name__ == "__main__":
-    if sys.version_info < (2 , 7):
-        sys.stderr.write("WARNING: only tested Python 2.7 so far\n")
-    elif sys.version_info > (2 , 8):
-        sys.stderr.write("WARNING: only tested Python 2.7 so far\n")
+    if sys.version_info < (2 , 6) or sys.version_info > (2 , 8):
+        sys.stderr.write(
+            "WARNING: Python version %s untested\n" % sys.version_info)
 
     biopython_version = tuple([int(x) for x in Bio.__version__.split('.')])
-    if biopython_version < (1 , 55):
-        sys.stderr.write("WARNING: only tested Biopython 1.55 so far\n")
-    elif biopython_version > (1 , 55):
-        sys.stderr.write("WARNING: only tested Biopython 1.55 so far\n")
+    if biopython_version < (1 , 55) or biopython_version > (1 , 59):
+        sys.stderr.write(
+            "WARNING: Biopython version %s untested\n" % (biopython_version))
 
     main()
     LOG.info("Successful exit")
