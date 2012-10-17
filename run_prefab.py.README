@@ -19,11 +19,12 @@ Creating prefab4_file_list.txt
 Assuming you have squid's alistat installed:
 
 <code>
-for fbase in $(find ./ref -type f -name [0-9]*_[0-9]* | xargs -n1 basename); do
-   pwidref=$(alistat ./ref/$fbase | awk '/^Average identity:/ {sub(/%/, ""); print $NF}');
-   numseqin=$(grep -c -- '^>' ./in/$fbase);
+d=./prefab4
+for fbase in $(find $d/ref -type f -name [0-9]*_[0-9]* | xargs -n1 basename); do
+   pwidref=$(alistat $d/ref/$fbase | awk '/^Average identity:/ {sub(/%/, ""); print $NF}');
+   numseqin=$(grep -c -- '^>' $d/in/$fbase);
    echo "$fbase $numseqin $pwidref";
-done > prefab4_file_list.txt
+done > ${d}_file_list.txt
 </code>
 
 
