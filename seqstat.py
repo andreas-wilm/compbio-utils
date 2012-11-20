@@ -314,17 +314,18 @@ def main():
         sys.exit(0)
 
         
-    # aligned = true if all raw sequences have same length, but
-    # degapped ones don't
     aligned = False
-    if nseqs>1 and len(set(seqlens)) == 1:# and len(set(seqlens_ungapped)) != 1:
+    if nseqs>1 and len(set(seqlens)) == 1:
+        # add and len(set(seqlens_ungapped)) != 1 to make sure
+        # unaligend sequence length are identical
         aligned = True
         aln_len = seqlens[0] # any will do as we know they're aligned
         pw_id_mx = comp_pairwise_ident_matrix(seqrecs)
 
     if not aligned and seqlens != seqlens_ungapped:
-        LOG.warn("Found gaps, but sequences do not seem to be aligned. Stats will be for ungapped seqs.")
-        
+        LOG.warn("Found gaps, but sequences do not seem to be aligned."
+                 " Stats will be for ungapped seqs.")
+         
     # guess type from first entry
     if guess_if_nucleic_acid(seqrecs[0].seq):
         seqtype = 'protein' 
@@ -383,7 +384,7 @@ def main():
                 (pw_id_max_idx, pw_id_max_val) = argminmax(pw_ids, 'max')
                 pw_ids[i] = 1.1
                 (pw_id_min_idx, pw_id_min_val) = argminmax(pw_ids, 'min')
-                pw_ids[i] = None
+                pw_ids[i] = None # reset even though not strictly necessary
 
                 line += "\t%.4f\t%s\t%.4f\t%s" % (
                     pw_id_max_val, seqrecs[pw_id_max_idx].id,
@@ -393,16 +394,14 @@ def main():
             
 
 if __name__ == "__main__":
-    if sys.version_info < (2 , 7):
-        sys.stderr.write("WARNING: only tested Python 2.7 so far\n")
-    elif sys.version_info > (2 , 8):
-        sys.stderr.write("WARNING: only tested Python 2.7 so far\n")
+    if sys.version_info < (2 , 6) or sys.version_info > (2 , 8):
+        sys.stderr.write(
+            "WARNING: Python version %s untested\n" % sys.version_info)
 
     biopython_version = tuple([int(x) for x in Bio.__version__.split('.')])
-    if biopython_version < (1 , 55):
-        sys.stderr.write("WARNING: only tested Biopython 1.55 so far\n")
-    elif biopython_version > (1 , 55):
-        sys.stderr.write("WARNING: only tested Biopython 1.55 so far\n")
+    if biopython_version < (1 , 55) or biopython_version > (1 , 59):
+        sys.stderr.write(
+            "WARNING: Biopython version %s untested\n" % (biopython_version))
 
     main()
     LOG.info("Successful exit")

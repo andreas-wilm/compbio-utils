@@ -1,4 +1,10 @@
+# empty
+
 #!/bin/awk -f
+# on most Linux machines, but
+#!/usr/bin/awk -f
+# on OS X
+# So use awk -f fa_to_vie.awk instead
 
 # Simple script (no sanity checks are done) to concat fasta sequences,
 # so that seqs are on one line (like vienna format). Takes fasta input
