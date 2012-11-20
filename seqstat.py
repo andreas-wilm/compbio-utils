@@ -189,7 +189,7 @@ def pairwise_identity(s1, s2):
     sequences.
 
     Uppercase your sequence for case insensitivity. For mixed RNA/DNA
-    you might want to replace T's with U'l vice versa.
+    you might want to replace T's with U's vice versa.
     
     Based on ideas from
     http://code.activestate.com/recipes/499304-hamming-distance/
@@ -218,9 +218,18 @@ def comp_pairwise_ident_matrix(seqrecs):
     for i in xrange(nseqs):
         jdists = []
         for j in xrange(0, i):
-            pwid = pairwise_identity(str(seqrecs[i].seq).upper(),
-                                     str(seqrecs[j].seq).upper())
+            s1 = str(seqrecs[i].seq).upper()
+            s2 = str(seqrecs[j].seq).upper()
+            pwid = pairwise_identity(s1, s2)
             jdists.append(pwid)
+
+            if False:
+                # tmp hack dna dist
+                dist = sum(c1 != c2
+                         for c1, c2 in izip(s1, s2)
+                         if not isgap(c1) and not isgap(c2))
+                print "TMP: dist %s vs %s: %d" % (seqrecs[i].id, seqrecs[j].id, dist)
+
         jdists.append(None) # self comparison not defined
         mx.append(jdists)
     return mx
@@ -308,12 +317,13 @@ def main():
     # aligned = true if all raw sequences have same length, but
     # degapped ones don't
     aligned = False
-    if len(set(seqlens)) == 1 and len(set(seqlens_ungapped)) != 1:
+    if nseqs>1 and len(set(seqlens)) == 1:# and len(set(seqlens_ungapped)) != 1:
         aligned = True
         aln_len = seqlens[0] # any will do as we know they're aligned
         pw_id_mx = comp_pairwise_ident_matrix(seqrecs)
 
-                    
+    if not aligned and seqlens != seqlens_ungapped:
+        LOG.warn("Found gaps, but sequences do not seem to be aligned. Stats will be for ungapped seqs.")
         
     # guess type from first entry
     if guess_if_nucleic_acid(seqrecs[0].seq):
@@ -362,7 +372,8 @@ def main():
             if aligned:
                 # construct list of pairwise ids from fake matrix. 
                 pw_ids = pw_id_mx[i]
-                pw_ids.extend([pw_id_mx[j][i] for j in xrange(i+1, nseqs)])
+                pw_ids.extend([pw_id_mx[j][i] 
+                               for j in xrange(i+1, nseqs)])
                 assert len(pw_ids) == nseqs, (
                     "len(pw_ids)=%d, but expected %d" % (len(pw_ids), nseqs))
 
@@ -374,8 +385,7 @@ def main():
                 (pw_id_min_idx, pw_id_min_val) = argminmax(pw_ids, 'min')
                 pw_ids[i] = None
 
-                line += "%s\t%.2f %s\t%.2f %s" % (
-                    seqrecs[i].id,
+                line += "\t%.4f\t%s\t%.4f\t%s" % (
                     pw_id_max_val, seqrecs[pw_id_max_idx].id,
                     pw_id_min_val, seqrecs[pw_id_min_idx].id)
             print line
