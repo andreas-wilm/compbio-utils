@@ -129,8 +129,9 @@ def prune_aln(aln, what, fh_out=sys.stdout):
     
     keep_cols = []
     for i in xrange(aln.get_alignment_length()):
-        col = aln.get_column(i)
-        counter = Counter(col.upper())
+        # deprecated: col = aln.get_column(i)
+        col_nucs = [sr.seq[i].upper() for sr in aln]
+        counter = Counter(col_nucs)
 
         if what == 'any_gap':
             if any([isgap(c) for c in counter.keys()]):
@@ -204,16 +205,15 @@ def main():
     
 
 if __name__ == "__main__":
-    if sys.version_info < (2 , 7):
-        sys.stderr.write("WARNING: only tested Python 2.7 so far\n")
-    elif sys.version_info > (2 , 8):
-        sys.stderr.write("WARNING: only tested Python 2.7 so far\n")
-
-    biopython_version = tuple([int(x) for x in Bio.__version__.split('.')])
-    if biopython_version < (1 , 55):
-        sys.stderr.write("WARNING: only tested Biopython 1.55 so far\n")
-    elif biopython_version > (1 , 55):
-        sys.stderr.write("WARNING: only tested Biopython 1.55 so far\n")
-
+    
     main()
+
+    if sys.version_info < (2 , 7) or sys.version_info > (2 , 8):
+        LOG.info("only tested Python 2.7 so far")
+
+    biopython_version = tuple(
+        [int(x) for x in Bio.__version__.split('.')])
+    if biopython_version < (1 , 55) or biopython_version > (1 , 57):
+        LOG.info("using untested version of Biopython")
+    
     LOG.info("Successful exit")
