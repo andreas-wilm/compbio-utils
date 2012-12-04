@@ -78,7 +78,7 @@ def cmdline_parser():
     parser.add_argument("-r", "--ref",
                       dest="ref",
                       required=True,
-                      help="Mapping/reference sequence/chromsome")
+                      help="Mapping/reference sequence/chromosome")
     parser.add_argument("-b", "--bam",
                       dest="bam",
                       required=True,
@@ -172,7 +172,7 @@ def main():
     if counts_sum == 0:
         sys.exit(0)
     for k in sorted(counts.keys()):
-        if counts_sum:
+        if counts[k]:
             print "%s %d %.4f" % (k, counts[k], counts[k]/float(counts_sum))
             
     
@@ -180,4 +180,3 @@ def main():
 if __name__ == "__main__":
     main()
     LOG.info("Successful exit")
-    LOG.warn("WARNING: derive position from sequence context (aln2dealn) before calling")
