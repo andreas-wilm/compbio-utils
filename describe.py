@@ -79,23 +79,40 @@ def main():
 
 
     # scipy.stats.describe already covers a lot
-    describe_res = ["size",
-                    "(min, max)", 
-                    "arithmetic mean",
-                    "unbiased variance",
-                    "biased skewness",
-                    "biased kurtosis"]
-    for (name, res) in zip(describe_res,
-                           stats.describe(arr)):
-        print "%s:\t%s" % (name, res)
+    describe_names = ["size", "(min, max)", "arithmetic mean", 
+                      "unbiased variance", "biased skewness", 
+                      "biased kurtosis"]
+    describe_result = dict(zip(describe_names, stats.describe(arr)))
+    for k in describe_names:
+        v = describe_result[k]
+        if k=="(min, max)":
+            # used later
+            min = v[0]
+            max = v[1]
+            continue
+        print "%s: %f" % (k, v)
     # ...but not percentiles
-    print "median:\t%f" % (stats.scoreatpercentile(arr, 50))
+    median = stats.scoreatpercentile(arr, 50)
+    lower_q = (stats.scoreatpercentile(arr, 25)) # q1
+    upper_q = (stats.scoreatpercentile(arr, 75)) # q3
+    iqr = upper_q-lower_q
+    whisker = 1.5*iqr
+    #print "IQR:\t%f" % iqr
     for p in [1, 5, 10]:
         print "%dth percentile:\t%f" % (p, stats.scoreatpercentile(arr, p))
-    upper_q = (stats.scoreatpercentile(arr, 75))
-    lower_q = (stats.scoreatpercentile(arr, 25))
-    print "IQR:\t%f" % (upper_q-lower_q)
+    print "# five number summary"
+    # FIXME compare to http://en.wikipedia.org/wiki/Five-number_summary
+    # echo 0, 0, 1, 2, 63, 61, 27, 13, | tr ',' '\n' | describe.py 
+    # quartiles differ
+    print "min:\t%f" % (min)
+    print "q1:\t%f" % (lower_q)
+    #print "lower hinge:\t%f" % (median-whisker)
+    print "median:\t%f" % (median)
+    #print "upper hinge:\t%f" % (median+whisker)
+    print "q3:\t%f" % (upper_q)
+    print "max:\t%f" % (max)
 
+    print "DEBUG: %s" % arr
     if fh != sys.stdin:
         fh.close()
     
