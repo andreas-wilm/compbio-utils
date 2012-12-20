@@ -78,6 +78,7 @@ def main():
     arr = numpy.fromiter(iterable, numpy.float)
 
 
+    print "sum:\t%d" % (arr.sum())
     # scipy.stats.describe already covers a lot
     describe_names = ["size", "(min, max)", "arithmetic mean", 
                       "unbiased variance", "biased skewness", 
@@ -101,7 +102,7 @@ def main():
     for p in [1, 5, 10]:
         print "%dth percentile:\t%f" % (p, stats.scoreatpercentile(arr, p))
     print "# five number summary"
-    # FIXME compare to http://en.wikipedia.org/wiki/Five-number_summary
+    # FIXME different to http://en.wikipedia.org/wiki/Five-number_summary
     # echo 0, 0, 1, 2, 63, 61, 27, 13, | tr ',' '\n' | describe.py 
     # quartiles differ
     print "min:\t%f" % (min)
@@ -112,7 +113,7 @@ def main():
     print "q3:\t%f" % (upper_q)
     print "max:\t%f" % (max)
 
-    print "DEBUG: %s" % arr
+    #print "DEBUG: %s" % arr
     if fh != sys.stdin:
         fh.close()
     
