@@ -1,11 +1,4 @@
-# empty
-
-#!/bin/awk -f
-# on most Linux machines, but
-#!/usr/bin/awk -f
-# on OS X
-# So use awk -f fa_to_vie.awk instead
-
+#!/bin/bash
 # Simple script (no sanity checks are done) to concat fasta sequences,
 # so that seqs are on one line (like vienna format). Takes fasta input
 # from pipe or file. Main use is quick-and-dirty downstream handling,
@@ -16,11 +9,11 @@
 # 
 
 # Test correctness:
-# fa_to_vie.awk test.fa | sreformat fasta - | md5sum 
-# cat test.fa | fa_to_vie.awk | sreformat fasta - | md5sum 
+# cat test.fa | fa_to_vie.sh | sreformat fasta - | md5sum 
+# fa_to_vie.sh test.fa | sreformat fasta - | md5sum 
 # sreformat fasta test.fa | md5sum 
 
-{
+awk '{
     if (/^>/) {
         if (NR!=1) {
             printf "\n";
@@ -30,9 +23,6 @@
         printf $0;
     }
 }
-
 END {
     printf "\n";
-}
-
-        
+}' $1
