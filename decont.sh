@@ -4,6 +4,13 @@
 #
 # Largely based on bwa_unique.sh
 
+echoinfo() {
+    echo "INFO: $@" 1>&2
+}
+echofatal() {
+    echo "FATAL: $@" 1>&2
+}
+
 # defaults
 illumina=0
 threads=4
@@ -26,7 +33,7 @@ $PICARDIR_DEFAULT otherwise)
 
   Mandatory options:
     -f | --fastq1    : Input fastq[.gz] file
-    -r | --ref       : Reference fasta file
+    -r | --ref       : Reference (contamination source) fasta file
     -o | --outprefix : Output prefix
   Optional:
     -h | --help      : Display this help
@@ -44,7 +51,7 @@ EOF
 #
 for bin in java samtools; do
     if ! which $bin >/dev/null 2>&1; then
-        echo "FATAL: couldn't find $bin. make sure it's in your path" 1>&2
+        echofatal "couldn't find $bin. make sure it's in your path"
         exit 1
     fi
 done
@@ -52,7 +59,7 @@ test -z "$PICARDDIR" && export PICARDDIR=$PICARDDIR_DEFAULT
 # check for picard needed for samtofastq adding (needed for GATK)
 picard_samtofastq_jar=${PICARDDIR}/SamToFastq.jar
 if [ ! -s $picard_samtofastq_jar ]; then
-    echo "FATAL: couldn't find Picard's $(basename picard_samtofastq_jar). Please set PICARDDIR to your Picard installation" 1>&2
+    echofatal "couldn't find Picard's $(basename picard_samtofastq_jar). Please set PICARDDIR to your Picard installation"
     exit 1
 fi
 
@@ -99,7 +106,7 @@ while [ "$1" != "" ]; do
             tmpdir=$1
             ;;
         * ) 
-            echo "FATAL: unknown argument \"$1\"" 1>&2
+            echofatal "unknown argument \"$1\""
             usage
             exit 1
     esac
@@ -109,18 +116,17 @@ done
 # check arguments
 # 
 if [ -z "$fastq1" ]; then
-    echo "FATAL: fastq file \"$fastq1\" missing" 1>&2
-    echo
+    echofatal "fastq file \"$fastq1\" missing"
     usage
     exit 1
 fi
 if [ -z "$reffa" ]; then
-    echo "FATAL: reference fasta file \"$reffa\" missing" 1>&2
+    echofatal "reference fasta file \"$reffa\" missing"
     usage
     exit 1
 fi
 if [ -z "$outprefix" ]; then
-    echo "FATAL: output prefix missing" 1>&2
+    echofatal "output prefix missing"
     usage
     exit 1
 fi
@@ -128,18 +134,17 @@ fi
 if [ -z "$tmpdir" ]; then
     tmpdir=$(mktemp --tmpdir -d "$(basename $0).XXXXXX")
 fi
+echoinfo "Using temp dir $tmpdir"
 
-allbam=$tmpdir/all.bam
-cleanbam=$tmpdir/clean.bam
+# set up output file names
 contbam=${outprefix}_cont.bam
-
-fastq_clean_s1=${outprefix}_s1.fastq
+fastq_clean_1=${outprefix}_1.fastq
 if [ ! -z $fastq2 ]; then
-    fastq_clean_s2=${outprefix}_s2.fastq
+    fastq_clean_2=${outprefix}_2.fastq
 fi
 
-if [ -s $fastq_clean_s1 ] || [ -s ${fastq_clean_s1}.gz ]; then
-    echo "ERROR: refusing to overwrite already existing $fastq_clean_s1" 1>&2
+if [ -s $fastq_clean_1 ] || [ -s ${fastq_clean_1}.gz ] || [ -s $contbam ] ; then
+    echofatal "refusing to overwrite already existing file"
     exit 1
 fi
 
@@ -153,12 +158,19 @@ test -s ${reffa}.pac || bwa index $reffa || exit 1
 # please get on with it?
 #
 
-# remove q3 in accordance with illumina guidelines
+allbam=$tmpdir/all.bam
+bwalog=$tmpdir/bwa.log
+
+# STEP 1: bwa aln
+# --------------------------------------------------------------------
+
+# -q 3: remove q3 in accordance with illumina guidelines
 bwa_aln_extra_args="-t $threads -q 3"
 if [ $illumina -eq 1 ]; then
     bwa_aln_extra_args="$bwa_aln_extra_args -I"
     # -I: if phred qualities are ascii64, ie. Illumina 1.3-1.7
 fi
+
 
 # bwa aln for each fastq. skip if sai already exists
 sais=""
@@ -166,18 +178,26 @@ for fastq in $fastq1 $fastq2; do
     sai=$tmpdir/$(basename $fastq .gz | sed -e 's,.fastq$,,' | sed -e 's,.txt$,,').sai
     sais="$sais $sai"
     if [ -s "$sai" ]; then
-        echo "INFO: reusing already existing $sai" 1>&2
+        echoinfo "Reusing already existing $sai"
         continue
     fi
     if [ -s "$allbam" ]; then
-        echo "INFO: skipping alignment step (bwa aln) and reusing already existing $allbam" 1>&2
+        echoinfo "Skipping alignment step (bwa aln) and reusing already existing $allbam"
         continue
     fi
 #cat <<EOF
-    bwa aln $bwa_aln_extra_args -f $sai $reffa $fastq || exit 1;
+    if ! bwa aln $bwa_aln_extra_args -f $sai $reffa $fastq >> $bwalog 2>&1; then
+        echofatal "bwa aln failed. See $bwalog"
+        exit 1
+    fi
 #EOF
 done
+echoinfo "BWA aln done"
 
+
+
+# STEP 2: bwa sam[sp]e
+# --------------------------------------------------------------------
 
 # SR/PE specific options to bwa
 bwa_samse_extra_args=""
@@ -191,82 +211,84 @@ else
     # keep only reads mapped in proper pair
 fi
 
+if [ -s "$allbam" ]; then
+    echoinfo "Skipping sam conversion and reusing already existing $allbam"
+else
+#cat <<EOF
+    if ! bwa $args 2>>$bwalog | samtools view -bS - > $allbam; then
+        echofatal "bwa or samtools failed. see $bwalog"
+        exit 1
+    fi
+#EOF
+fi
+echoinfo "BWA sam[sp]e done"
 
-# -f INT: Only output alignments with all bits in INT present in the FLAG field
-# -F INT: Skip alignments with bits present in INT [0]
-# 0x4 segment unmapped
-# 0x8 next segment in the template unmapped
+
+
+
+# STEP 3: split into contaminated reads (BAM) and clean FastQ
+# --------------------------------------------------------------------
+
+# Not using samtools view with -f/-F (0x4 segment unmapped, 0x8 next
+# segment in the template unmapped), but awk to save one reading
+# operation
 #
 # In case of PE reads, we consider clean if neither read nor mate are
-# mapped read 0x4 and mate 0x8 unmapped. both required. therefore -f
-# 12 Note: -f 12 is not the same as -f 4 and -f 8 (let alone 0x12)
-# Numbers in clean and cont do not necessarily tally.
+# mapped read 0x4 and mate 0x8 unmapped. Note, samtools view -f 12
+# (note: not 0x12!) does not allow for mapped reads and unmapped mates
+# and vice versa. At the same time you can give -F/-f only once to
+# samtools.
 #
-# Contaminated are then reads that map or where mate maps:
-# -F 8 -F 4
-
-
-
-# Note: numbers don't add up (not sure why)
+# Use picard for bam2fastq because it's extra pedantic. Good
+# alternative would be
+# http://www.hudsonalpha.org/gsl/software/bam2fastq.php which has the
+# (dis)advantage of simply skipping unpaired mate-pairs.
 #
-# grep ^Total SRR341581_1_fastqc/fastqc_data.txt 
-# Total Sequences16615077
-# echo 16615077*2 | bc -l
-# 33230154
-# samtools view -c  -F 12  /tmp/decont.sh.4zE4mU/all.bam  
-# 38
-# samtools view -c  -F 8  /tmp/decont.sh.4zE4mU/all.bam  
-# 1880
-# samtools view -c  -F 4  /tmp/decont.sh.4zE4mU/all.bam  
-# 1880
-# samtools view -c  -F 8 -F 4  /tmp/decont.sh.4zE4mU/all.bam  
-# 1880
-# samtools view -c  -f 12  /tmp/decont.sh.4zE4mU/all.bam  
-# 33226432
-# samtools view -c  -f 4 -f 8  /tmp/decont.sh.4zE4mU/all.bam  
-# 33228274
-# echo 33228274+1880 | bc 
-# 33230154
+# With LENIENT Picard will ignore errors like "Error parsing text SAM
+# file. MAPQ should be 0 for unmapped read." for cicular chromosomes.
+#
+# All communication via fifo to save io and only save BAM/gz.
+# Disadvantage: can't catch errors directly, only via log.
+#
 
-
-if [ -s "$allbam" ]; then
-    echo "INFO: skipping sam conversion and reusing already existing $allbam" 1>&2
-else
-#cat <<EOF
-    bwa $args | samtools view -bS - > $allbam || exit 1
-#EOF
-fi
-
-#samtools index $allbam
-if [ -z $fastq2 ]; then
-    clean_flag='-f 4'
-    cont_flag='-F 4'
-else
-    clean_flag='-f 12'
-    cont_flag='-F 8 -F 4'
-fi
-#cat <<EOF
-samtools view -b $clean_flag $allbam > $cleanbam
-samtools view -b $cont_flag $allbam > $contbam
-#EOF
-echo "WARN: samtools filtering step untested on SE read mapping" 1>&2
-
-
+# setup fifos
+fastq_clean_1_fifo=$tmpdir/$(basename $fastq_clean_1 fastq)fifo
 if [ ! -z $fastq2 ]; then
-    pe_arg="SECOND_END_FASTQ=$fastq_clean_s2"
+    fastq_clean_2_fifo=$tmpdir/$(basename $fastq_clean_2 fastq)fifo
 fi
+contbam_fifo=$tmpdir/$(basename $contbam bam)fifo
+fifos="$fastq_clean_1_fifo $fastq_clean_2_fifo $contbam_fifo"
+for fifo in $fifos; do
+	test -e $fifo && rm $fifo
+	mkfifo $fifo
+done
 
-# samtofastq has no gzip support. could use /dev/stdout and | gzip for
-#first fastq but wouldn't be able to catch errors then
+execlog=${outprefix}_decont-exec.log
+samtools view -bS - < $contbam_fifo > $contbam 2>>$execlog &
+gzip < $fastq_clean_1_fifo > ${fastq_clean_1}.gz 2>>$execlog &
+if [ -z $fastq2 ]; then
+    echofatal "Filtering for SE reads not yet implemented (awk cmd)"
+    exit 1
+else
+    gzip < $fastq_clean_2_fifo > ${fastq_clean_2}.gz 2>>$execlog &
+    samtofastq_pe_arg="SECOND_END_FASTQ=$fastq_clean_2_fifo"
+fi
+echoinfo "Splitting into contaminated BAM and clean fastq..."
+samtools view -h $allbam 2>>$execlog | \
+    awk -v fifo=$contbam_fifo 'BEGIN {FS="\t"; OFS="\t"}
+{if (/^@/ && substr($2, 3, 1)==":") {print >> fifo; next}
+if (and($2, 0x4) && and($2, 0x8) && $3=="*") {print} else {print >> fifo}}' | \
+    java -jar $picard_samtofastq_jar \
+        VERBOSITY=ERROR QUIET=TRUE \
+        INCLUDE_NON_PF_READS=true VALIDATION_STRINGENCY=LENIENT \
+        INPUT=/dev/stdin FASTQ=$fastq_clean_1_fifo $samtofastq_pe_arg 2>>$execlog
 
-#cat <<EOF
-java -jar $picard_samtofastq_jar \
-        INPUT=$cleanbam FASTQ=$fastq_clean_s1 $pe_arg INCLUDE_NON_PF_READS=true || exit 1
-gzip ${outprefix}_s[12].fastq
-#EOF
+rm $fifos
+grep -v '[samopen] SAM header is present:' $execlog 1>&2
 
 if [ $keep_temp -ne 1 ]; then
     test -d $tmpdir && rm -rf $tmpdir
 else
-    echo "Keeping $tmpdir"
+    echoinfo "Keeping $tmpdir"
 fi
+echoinfo "Successful exit"
