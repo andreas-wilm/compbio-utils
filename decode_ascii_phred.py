@@ -79,7 +79,7 @@ def main():
                     enc_quals = col
                     dec_quals = decode_phred(enc_quals, args.qualenc)
                     print ' '.join(["%s" % q for q in dec_quals]),
-                    
+        print                    
     if fh != sys.stdin:
         fh.close()
                     
