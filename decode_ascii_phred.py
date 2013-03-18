@@ -2,7 +2,7 @@
 """Decode ASCII-encoded phred scores.
 
 Can replace certain columns with decoded values and leave the rest. Try e.g.
-samtools mpileup -s your.bam  | phred-ascii-to-int.py -c 6 7
+samtools mpileup -s your.bam  | decode_ascii_phred.py -c 6 7
 """
 
 
