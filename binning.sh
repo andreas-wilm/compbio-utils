@@ -1,6 +1,11 @@
 #!/bin/bash
-
+#
 # quick and dirty binning of data (column 1!)
+
+usage() {
+  echo "$(basename $0): quick and dirty binning of data (column 1!)"
+  echo "usage: $(basename $0): window-size [file]"
+}
 
 #
 # window/bin size
@@ -8,7 +13,10 @@ win=$1
 # optional filename. default is stdin
 file=$2
 
-test -n "$1" || exit 1
+if [ -z "$1" ]; then
+  usage
+  exit 1
+fi
 
 
 awk -v win=$win '
