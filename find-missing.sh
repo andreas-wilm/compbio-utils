@@ -57,7 +57,7 @@ fi
 
 # min/maxdepth only affects dir
 for d in $(find $sym_link_opts $path $depth_opts -type d); do
-    echo_debug "checking d=$d" 
+    test $debug -eq 1 && echo_debug "checking d=$d" 
     if [ $(find $sym_link_opts $d $expressions | wc -l) -eq 0 ]; then
         echo $d;
     fi
