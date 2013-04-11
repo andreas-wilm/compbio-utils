@@ -313,7 +313,7 @@ def main():
         LOG.warn('No sequences found. Try changing the format (just tried: %s)' % fmt)
         sys.exit(0)
 
-        
+    
     aligned = False
     if nseqs>1 and len(set(seqlens)) == 1:
         # add and len(set(seqlens_ungapped)) != 1 to make sure
@@ -390,7 +390,11 @@ def main():
                     pw_id_max_val, seqrecs[pw_id_max_idx].id,
                     pw_id_min_val, seqrecs[pw_id_min_idx].id)
             print line
-            
+
+    print "%d names are unique and %d sequences are unique (including gaps)." % (
+        len(set([s.id for s in seqrecs])),
+        len(set([str(s.seq) for s in seqrecs])))
+
             
 
 if __name__ == "__main__":
