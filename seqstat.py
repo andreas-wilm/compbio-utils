@@ -315,7 +315,7 @@ def main():
 
     
     aligned = False
-    if nseqs>1 and len(set(seqlens)) == 1:
+    if nseqs > 1 and len(set(seqlens)) == 1:
         # add and len(set(seqlens_ungapped)) != 1 to make sure
         # unaligend sequence length are identical
         aligned = True

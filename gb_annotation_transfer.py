@@ -25,7 +25,7 @@ from Bio import SeqIO
 
 #--- project specific imports
 #
-# /
+import bioutils
 
                                                         
 __author__ = "Andreas Wilm"
@@ -41,47 +41,6 @@ __license__ = "The MIT License (MIT)"
 LOG = logging.getLogger("")
 logging.basicConfig(level=logging.INFO,
                     format='%(levelname)s [%(asctime)s]: %(message)s')
-
-
-GAP_CHARS = ['-', '~', '.']
-
-
-def guess_seqformat(fseq):
-    """Guess sequence format from file extension
-    """
-    default = 'fasta'
-
-    # Table for guessing the alignment format from the file extension. 
-    # See http://www.biopython.org/wiki/SeqIO
-    #
-    # Only define the ones I actually came accors here:
-    ext_to_fmt_table = dict(
-        aln = 'clustal',
-        embl = 'embl',
-        fasta = 'fasta',
-        fa = 'fasta',
-        genbank = 'genbank',
-        gb = 'genbank',
-        phylip = 'phylip',
-        phy = 'phylip',
-        ph = 'phylip',
-        pir = 'pir',
-        stockholm = 'stockholm',
-        st = 'stockholm',
-        stk = 'stockholm')
-
-    try:
-        fext = os.path.splitext(fseq)[1]
-        fext = fext[1:].lower()
-        fmt =  ext_to_fmt_table[fext]
-    except KeyError:
-        return default
-
-    return fmt
-
-
-
- 
 
 class PosMap(object):
     """Position map class
@@ -103,7 +62,7 @@ class PosMap(object):
     def isgap(res):
         """Return true if given residue is a gap character
         """
-        return (res in GAP_CHARS)
+        return (res in ['-', '~', '.'])
     
 
     
@@ -194,16 +153,16 @@ class PosMap(object):
 
                 
         if query and src:
-              d = dict([(v[src], v[query]) 
-                         for (k, v) in self.pos_map.iteritems()])
+            d = dict([(v[src], v[query]) 
+                      for (k, v) in self.pos_map.iteritems()])
         elif src:
             d = dict([(v[src], k) 
-                         for (k, v) in self.pos_map.iteritems()])
+                      for (k, v) in self.pos_map.iteritems()])
             #for (k, v) in d.iteritems():
             #    assert k<=v
         elif query:            
             d = dict([(k, v[query]) 
-                         for (k, v) in self.pos_map.iteritems()])            
+                      for (k, v) in self.pos_map.iteritems()])            
         else:
             raise ValueError
             
@@ -270,7 +229,7 @@ def main():
     refseq = refseq[0]
 
 
-    pw_aln = list(SeqIO.parse(opts.pw_aln, guess_seqformat(opts.pw_aln)))
+    pw_aln = list(SeqIO.parse(opts.pw_aln, bioutils.guess_seqformat(opts.pw_aln)))
     assert len(pw_aln)==2, (
         "Was expecting two sequences, but parsed %d from %s" % (
             len(pw_aln), opts.pw_aln))

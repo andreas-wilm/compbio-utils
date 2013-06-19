@@ -86,7 +86,7 @@ def main():
     describe_result = dict(zip(describe_names, stats.describe(arr)))
     for k in describe_names:
         v = describe_result[k]
-        if k=="(min, max)":
+        if k == "(min, max)":
             # used later
             min = v[0]
             max = v[1]
@@ -97,7 +97,7 @@ def main():
     lower_q = (stats.scoreatpercentile(arr, 25)) # q1
     upper_q = (stats.scoreatpercentile(arr, 75)) # q3
     iqr = upper_q-lower_q
-    whisker = 1.5*iqr
+    #whisker = 1.5*iqr
     #print "IQR:\t%f" % iqr
     for p in [1, 5, 10]:
         print "%dth percentile:\t%f" % (p, stats.scoreatpercentile(arr, p))

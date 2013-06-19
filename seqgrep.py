@@ -19,7 +19,7 @@ from Bio.Seq import Seq
 
 #--- project specific imports
 #
-# /
+import bioutils
 
                                                         
 __author__ = "Andreas Wilm"
@@ -35,40 +35,6 @@ logging.basicConfig(level=logging.WARN,
                     format='%(levelname)s [%(asctime)s]: %(message)s')
 
   
-
-def guess_seqformat(fseq):
-    """
-    FIXME
-    """
-    default = 'fasta'
-
-    # Table for guessing the alignment format from the file extension. 
-    # See http://www.biopython.org/wiki/SeqIO
-    #
-    # Only define the ones I actually came accors here:
-    ext_to_fmt_table = dict(
-        aln = 'clustal',
-        embl = 'embl',
-        fasta = 'fasta',
-        fa = 'fasta',
-        genbank = 'genbank',
-        gb = 'genbank',
-        phylip = 'phylip',
-        phy = 'phylip',
-        ph = 'phylip',
-        pir = 'pir',
-        stockholm = 'stockholm',
-        st = 'stockholm',
-        stk = 'stockholm')
-
-    try:
-        fext = os.path.splitext(fseq)[1]
-        fext = fext[1:].lower()
-        fmt =  ext_to_fmt_table[fext]
-    except KeyError:
-        return default
-    return fmt
-
 
 def cmdline_parser():
     """
@@ -156,7 +122,7 @@ def main():
         else:
             fhandle = open(fseq, "rU")
         
-        fmt = guess_seqformat(fseq)
+        fmt = bioutils.guess_seqformat(fseq)
         if not fmt:
             fmt = 'fasta'
         LOG.info("Checking file %s (format %s)" % (fseq, fmt))
@@ -188,7 +154,7 @@ def main():
 
             if print_match:
                 #import pdb; pdb.set_trace()
-                prefix=""
+                prefix = ""
                 if print_file_prefix:
                     prefix = fseq + ":"
                 if fmt == 'fasta':

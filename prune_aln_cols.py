@@ -5,7 +5,6 @@
 
 #--- standard library imports
 #
-import os
 import sys
 import logging
 # optparse deprecated from Python 2.7 on
@@ -20,7 +19,7 @@ from Bio import AlignIO
 
 #--- project specific imports
 #
-# /
+import bioutils
 
                                                         
 __author__ = "Andreas Wilm"
@@ -34,51 +33,6 @@ __license__ = "The MIT License (MIT)"
 LOG = logging.getLogger("")
 logging.basicConfig(level=logging.WARN,
                     format='%(levelname)s [%(asctime)s]: %(message)s')
-
-
-GAP_CHARS = ['-', '~', '.']
-
-
-
-def isgap(res):
-    """Return true if given residue is a gap character
-    """
-    return (res in GAP_CHARS)
-
-
-
-def guess_seqformat(fseq):
-    """Guess sequence format from file extension
-    """
-    default = 'fasta'
-
-    # Table for guessing the alignment format from the file extension. 
-    # See http://www.biopython.org/wiki/SeqIO
-    #
-    # Only define the ones I actually came accors here:
-    ext_to_fmt_table = dict(
-        aln = 'clustal',
-        embl = 'embl',
-        fasta = 'fasta',
-        fa = 'fasta',
-        genbank = 'genbank',
-        gb = 'genbank',
-        phylip = 'phylip',
-        phy = 'phylip',
-        ph = 'phylip',
-        pir = 'pir',
-        stockholm = 'stockholm',
-        st = 'stockholm',
-        stk = 'stockholm')
-
-    try:
-        fext = os.path.splitext(fseq)[1]
-        fext = fext[1:].lower()
-        fmt =  ext_to_fmt_table[fext]
-    except KeyError:
-        return default
-
-    return fmt
 
 
 
@@ -134,10 +88,10 @@ def prune_aln(aln, what, fh_out=sys.stdout):
         counter = Counter(col_nucs)
 
         if what == 'any_gap':
-            if any([isgap(c) for c in counter.keys()]):
+            if any([bioutils.isgap(c) for c in counter.keys()]):
                 continue
         if what == 'all_gap':
-            if all([isgap(c) for c in counter.keys()]):
+            if all([bioutils.isgap(c) for c in counter.keys()]):
                 continue
         if what == 'identical':
             if len(set(counter.keys())) == 1:
@@ -193,7 +147,7 @@ def main():
 
     fmt = opts.informat
     if not fmt:
-        fmt = guess_seqformat(opts.aln_in)
+        fmt = bioutils.guess_seqformat(opts.aln_in)
 
     aln = AlignIO.read(fh_in, fmt)
     if fh_in != sys.stdin:
