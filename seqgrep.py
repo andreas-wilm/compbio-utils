@@ -11,6 +11,7 @@ import logging
 # optparse deprecated from Python 2.7 on
 from optparse import OptionParser
 import re
+import gzip
 
 #--- third-party imports
 #
@@ -120,7 +121,10 @@ def main():
         if fseq == "-":
             fhandle = sys.stdin
         else:
-            fhandle = open(fseq, "rU")
+            if fseq[-3:] == ".gz":
+                fhandle = gzip.open(fseq)
+            else:
+                fhandle = open(fseq, "rU")
         
         fmt = bioutils.guess_seqformat(fseq)
         if not fmt:
