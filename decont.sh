@@ -32,7 +32,7 @@ will be Sanger encoded).
 
 Prerequisites: BWA, Picard and samtools. Point the PICARDDIR
 environment variable to your picard installation (will use
-$PICARDIR_DEFAULT otherwise)
+$PICARDDIR_DEFAULT otherwise)
 
   Mandatory options:
     -f | --fastq1    : Input fastq[.gz] file
