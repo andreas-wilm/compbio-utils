@@ -3,20 +3,6 @@
 positions."""
 
 
-# Copyright (C) 2011, 2012 Genome Institute of Singapore
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-
-
-
 #--- standard library imports
 #
 import sys
@@ -78,7 +64,7 @@ def cmdline_parser():
     parser.add_argument("-r", "--ref",
                       dest="ref",
                       required=True,
-                      help="Mapping/reference sequence/chromosome")
+                      help="Mapping/reference sequence/chromosome name")
     parser.add_argument("-b", "--bam",
                       dest="bam",
                       required=True,
@@ -137,20 +123,24 @@ def main():
             counts["%c%c" % (n1, n2)] = 0
             
     num_dups = 0
+    num_anomalous = 0
     for alnread in sam.fetch(args.ref, pos_pair[0], pos_pair[1]+1):
         if alnread.is_duplicate:
             num_dups += 1
             continue
         assert not alnread.is_unmapped # shouldn't be possible anyway
-    
+        if alnread.is_paired and not alnread.is_proper_pair:
+            num_anomalous += 1
+            continue
         #region = list(sam.fetch("gi|158976983|ref|NC_001474.2|", 10308, 10411))
         #[(i, str(r)) for (i, r) in enumerate(region) if r.cigar != [(0, 51)]]
-    
+
         # create a map of ref position (string as key) and the corresponding query
         # (clipped read) nucleotides (value)
         pos_nt_map = dict([(str(rpos), alnread.query[qpos])
                            for (qpos, rpos) in alnread.aligned_pairs 
                            if qpos and rpos])
+
         try:
             nt5 = pos_nt_map[str(pos_pair[0])]
             nt3 = pos_nt_map[str(pos_pair[1])]
@@ -162,12 +152,17 @@ def main():
             continue
         key = "%c%c" % (nt5, nt3)
         counts[key] = counts.get(key, 0) + 1
+        #if key == 'AT':
+        #    import pdb; pdb.set_trace()
+        
         # we've initialized counts but be paranoid about existance of key anyway
     
     if num_dups:
         print "Ignored %d reads flagged as duplicates" % num_dups
+    if num_anomalous:
+        print "Ignored %d reads flagged as paired but not in proper pair" % num_anomalous
     counts_sum = sum(counts.values())
-    print "%d (non-dup)reads overlapped both given positions %d-%d"  % (
+    print "%d (non-dup)reads overlapped both given positions %d and %d"  % (
         counts_sum, pos_pair[0]+1, pos_pair[1]+1)
     if counts_sum == 0:
         sys.exit(0)
