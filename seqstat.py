@@ -6,7 +6,6 @@ Prints statistics of a sequence file (aligned or unaligned).
 
 #--- standard library imports
 #
-import os
 import sys
 import logging
 # optparse deprecated from Python 2.7 on
@@ -18,13 +17,13 @@ from operator import itemgetter
 
 #--- third-party imports
 #
-import Bio
 from Bio import SeqIO
 from Bio import Seq
 
 #--- project specific imports
 #
-# /
+import bioutils
+
 
                                                         
 __author__ = "Andreas Wilm"
@@ -40,43 +39,7 @@ logging.basicConfig(level=logging.WARN,
                     format='%(levelname)s [%(asctime)s]: %(message)s')
 
 
-GAP_CHARS = ['-', '~', '.']
 NUCLEIC_ACID_LETTERS = 'ACGTUN'
-
-
-def guess_seqformat(fseq):
-    """Guess sequence format from file extension
-    """
-    default = 'fasta'
-
-    # Table for guessing the alignment format from the file extension. 
-    # See http://www.biopython.org/wiki/SeqIO
-    #
-    # Only define the ones I actually came accors here:
-    ext_to_fmt_table = dict(
-        aln = 'clustal',
-        embl = 'embl',
-        fasta = 'fasta',
-        fa = 'fasta',
-        genbank = 'genbank',
-        gb = 'genbank',
-        phylip = 'phylip',
-        phy = 'phylip',
-        ph = 'phylip',
-        pir = 'pir',
-        stockholm = 'stockholm',
-        st = 'stockholm',
-        stk = 'stockholm')
-
-    try:
-        fext = os.path.splitext(fseq)[1]
-        fext = fext[1:].lower()
-        fmt =  ext_to_fmt_table[fext]
-    except KeyError:
-        return default
-
-    return fmt
-
 
 
 def argminmax(values, what=None):
@@ -129,23 +92,6 @@ def meanstd(values):
 
 
 
-def isgap(res):
-    """Return true if given residue is a gap character
-    """
-    return (res in GAP_CHARS)
-
-
-
-def ungap(seqstr):
-    """Return a copy of sequence string with all gaps removed
-    """
-    
-    #assert isinstance(seqstr, type("")) or \
-    #  isinstance(seqstr, type(u""))
-    for c in GAP_CHARS:
-        seqstr = seqstr.replace(c, '')
-    return seqstr
-
 
 
 def guess_if_nucleic_acid(seq, thresh = 0.90,
@@ -165,7 +111,7 @@ def guess_if_nucleic_acid(seq, thresh = 0.90,
       isinstance(seq, type(u""))
 
     # could use Seq.ungap if Seq.Seq
-    seq = ungap(str(seq).upper())
+    seq = bioutils.ungap(str(seq).upper())
     
     nuc_alpha_count = 0
     # don't use collections Counter (Python 2.7 only)
@@ -198,8 +144,8 @@ def pairwise_identity(s1, s2):
     assert len(s1) == len(s2)
     idents = sum(c1 == c2
                  for c1, c2 in izip(s1, s2) 
-                 if not isgap(c1) and not isgap(c2))
-    min_ungapped_len = min(len(ungap(s1)), len(ungap(s2)))
+                 if not bioutils.isgap(c1) and not bioutils.isgap(c2))
+    min_ungapped_len = min(len(bioutils.ungap(s1)), len(bioutils.ungap(s2)))
     return idents / float(min_ungapped_len)
 
 
@@ -227,7 +173,7 @@ def comp_pairwise_ident_matrix(seqrecs):
                 # tmp hack dna dist
                 dist = sum(c1 != c2
                          for c1, c2 in izip(s1, s2)
-                         if not isgap(c1) and not isgap(c2))
+                         if not bioutils.isgap(c1) and not bioutils.isgap(c2))
                 print "TMP: dist %s vs %s: %d" % (seqrecs[i].id, seqrecs[j].id, dist)
 
         jdists.append(None) # self comparison not defined
@@ -292,7 +238,7 @@ def main():
 
     fmt = opts.informat
     if not fmt:
-        fmt = guess_seqformat(fseq)
+        fmt = bioutils.guess_seqformat(fseq)
 
 
     seqrecs = []
@@ -304,7 +250,7 @@ def main():
     for seqrec in SeqIO.parse(fhandle, fmt):
         seqrecs.append(seqrec)
         seqlens.append(len(seqrec.seq))
-        seqlens_ungapped.append(len(ungap(str(seqrec.seq))))
+        seqlens_ungapped.append(len(bioutils.ungap(str(seqrec.seq))))
     if fhandle != sys.stdin:
         fhandle.close()
             
