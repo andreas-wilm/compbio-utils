@@ -402,10 +402,10 @@ if __name__ == "__main__":
         sys.stderr.write(
             "WARNING: Python version %s untested\n" % sys.version_info)
 
-    biopython_version = tuple([int(x) for x in Bio.__version__.split('.')])
-    if biopython_version < (1 , 55) or biopython_version > (1 , 59):
-        sys.stderr.write(
-            "WARNING: Biopython version %s untested\n" % (biopython_version))
+    #biopython_version = tuple([int(x) for x in Bio.__version__.split('.')])
+    #if biopython_version < (1 , 55) or biopython_version > (1 , 59):
+    #    sys.stderr.write(
+    #        "WARNING: Biopython version %s untested\n" % (Bio.__version__))
 
     main()
     LOG.info("Successful exit")
