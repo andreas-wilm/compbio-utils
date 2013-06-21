@@ -33,7 +33,14 @@ from Bio import AlignIO
 #
 import bioutils
 
-                                                        
+# invocation of ipython on exceptions
+if False:
+    import sys, pdb
+    from IPython.core import ultratb
+    sys.excepthook = ultratb.FormattedTB(
+        mode='Verbose', color_scheme='Linux', call_pdb=1)
+
+        
 __author__ = "Andreas Wilm"
 __version__ = "0.1"
 __email__ = "andreas.wilm@gmail.com"
@@ -46,9 +53,8 @@ LOG = logging.getLogger("")
 logging.basicConfig(level=logging.WARN,
                     format='%(levelname)s [%(asctime)s]: %(message)s')
 
-
-
-
+        
+                
 def shannon_entropy(l, b=2):
     """Return the Shannon entropy of random variable with probability
     vector l.
@@ -78,38 +84,51 @@ def cmdline_parser():
     parser.add_option("-i", "--aln",
                       dest="aln_in",
                       help="Input alignment or '-' for stdin")
+    parser.add_option("-m", "--map-to",
+                      dest="map_to",
+                      help="If given, using unaligned positions of this"
+                      " seq instead of aligned pos (skipping pos with gaps in this seq)")
     return parser
 
 
 def seqid(colctr):
-    """FIXME:add-doc
+    """colctr has to be collections.Counter for residues in an
+    alignment column
     """
+    for (res, count) in colctr.most_common():
+        if res not in bioutils.GAP_CHARS:
+            return count/float(sum(colctr.values()))
+    # can only happen if only gaps
+    return 0.0    
 
-    count = 0
-    # sort colctr counter dictionary in descending order and ignore gaps
-    for (res, count) in sorted(colctr.items(), key=lambda x: x[1], reverse=True):
-        if res in "-~.":
-            continue
-        break
-    # res is now the most frequent residues, with count counts
-    #import pdb; pdb.set_trace()
-    
-    return count/float(sum(colctr.values()))
-    
 
 def get_aln_column(aln, col_no):
     """Replacement for depreacted Alignment.get_column()
     """
-
     assert col_no < aln.get_alignment_length() 
-    return ''.join([s.seq[col_no] for s in aln])# get_all_seq() also deprecated
+    # get_column() and get_all_seq() deprecated
+    return ''.join([s.seq[col_no] for s in aln])
 
-    
+
+def unaln_pos_map(seq):
+    """Returns a list of length seq, where each value contains the
+    unaligned position (or None if NA)
+    """
+    map_to_seq_cols = []
+    gap_ctr = 0
+    for i in range(len(seq)):
+        if seq[i] in bioutils.GAP_CHARS:
+            gap_ctr += 1
+        map_to_seq_cols.append(i-gap_ctr)
+        if map_to_seq_cols[-1] < 0:
+            map_to_seq_cols[-1] = None
+    return map_to_seq_cols
+
+
 def main():
     """
     The main function
     """
-
 
     parser = cmdline_parser()
     (opts, args) = parser.parse_args()
@@ -123,7 +142,6 @@ def main():
         sys.exit(1)
     if len(args):
         parser.error("Unrecognized arguments found: %s" % args)
-
         
     char_set = "ACGTU"
     char_set = "ACDEFGHIKLMNPQRSTVWY"
@@ -150,6 +168,23 @@ def main():
     seqid_per_col = []    
     # note: had one case where this happily read an unaligned file!?
     aln = AlignIO.read(fh, fmt)
+
+    # if requested, get sequence record for the sequence we should
+    # positions to
+    map_to_seq = None
+    if opts.map_to:
+        map_to_seq = [rec.seq for rec in aln if rec.id == opts.map_to]
+        if not len(map_to_seq):
+            LOG.fatal("Couldn't find a sequence called %s in %s" % (
+                opts.map_to, fh.name))
+            sys.exit(1)
+        elif len(map_to_seq)>1:
+            LOG.fatal("Find more than one sequence with name %s in %s" % (
+                opts.map_to, fh.name))
+            sys.exit(1)
+        map_to_seq = map_to_seq[0]
+        map_to_seq_cols = unaln_pos_map(map_to_seq)
+        
     for i in xrange(aln.get_alignment_length()):
         #col = aln.get_column(i) # deprecated
         col = get_aln_column(aln, i).upper()
@@ -173,18 +208,27 @@ def main():
         entropy_per_col.append(shannon_entropy(vec))
 
         seqid_per_col.append(seqid(counter))
-        
+
+        # due to the fact that we keep all values (which is actually
+        # not necessary but would come in handy if values were
+        # precalculated) we cannot simply continue or there would be
+        # some missing. 'continue/next' here if needed.
+        if map_to_seq and map_to_seq[i] in bioutils.GAP_CHARS:
+            LOG.debug("Skipping col %d because map_to_seq has gap there." % (i+1))
+            continue
+
+        counts_str = ' '.join(
+            ["%s:%d" % (k,v) for (k,v) in sorted(counter.iteritems())])
+        if not map_to_seq:
+            rep_col = i
+        else: 
+            rep_col = map_to_seq_cols[i]
         print "%d %.6f %.6f %s" % (
-            i+1, seqid_per_col[i], 
-            entropy_per_col[i], 
-            ' '.join(["%s:%d" % (k,v) 
-                      for (k,v) in sorted(counter.iteritems())]))
+            rep_col+1 if not map_to_seq else map_to_seq_cols[i]+1, 
+            seqid_per_col[i], entropy_per_col[i], counts_str)
 
-    if fh.name != '-':
+    if fh != sys.stdout:
         fh.close()
-
-    #for i in range(len(entropy_per_col)):
-    #print i+1, entropy_per_col[i]
 
         
 if __name__ == "__main__":
