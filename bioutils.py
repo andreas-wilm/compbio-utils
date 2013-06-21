@@ -32,6 +32,18 @@ def isgap(res):
     return (res in GAP_CHARS)
 
 
+def ungap(seqstr):
+    """Return a copy of sequence string with all gaps removed
+
+    Similar to seq.ungap but aggressively removes all gap characters defined here  
+    """
+    
+    #assert isinstance(seqstr, type("")) or \
+    #  isinstance(seqstr, type(u""))
+    for c in GAP_CHARS:
+        seqstr = seqstr.replace(c, '')
+    return seqstr
+
 
 def guess_seqformat(fseq):
     """Guess sequence format from file extension used by SeqIO
