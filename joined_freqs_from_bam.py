@@ -56,11 +56,11 @@ def cmdline_parser():
                       dest="bam",
                       required=True,
                       help="Mapping input file (BAM)")
-    parser.add_argument('-c", "--chrom', 
+    parser.add_argument("-c", "--chrom",
                         dest="chrom",
-                        required="chrom",
-                        help="Positions are on this chromomsome/sequence")
-    parser.add_argument('-p", "--positions', 
+                        required=True,
+                        help="Positions are on this chromosome/sequence")
+    parser.add_argument("-p", "--positions", 
                         dest="positions",
                         metavar='NN',
                         type=int,
@@ -72,26 +72,39 @@ def cmdline_parser():
                         dest="ref_fa",
                         help="Will print bases at given positions in"
                         " reference fasta file")
-    parser.add_argument("-m", "--min-mq",
+    default = 13
+    parser.add_argument("-M", "--min-mq",
                         dest="min_mq",
                         type=int,
-                        default=13,
-                        help="Ignore reads with MQ smaller than this value")
+                        default=default,
+                        help="Ignore reads with MQ smaller than this value"
+                        " (default=%d)" % default)
+    default = 13
+    parser.add_argument("-B", "--min-bq",
+                        dest="min_bq",
+                        type=int,
+                        default=default,
+                        help="Ignore bases with BQ smaller than this value"
+                        " (default=%d)" % default)
 
     return parser
 
 
 
-def joined_counts(sam, chrom, positions, min_mq=13):
-    """sam: samfile object (pysam)
-    chrom: chromsome/sequence of interest
-    positions: list of (zero-offset) positions to analyze (note, use long if necessary)
-    min_mq:filter reads with mapping qualiy below this value
+def joined_counts(sam, chrom, positions, min_mq=13, min_bq=13):
+    """
+    - sam: samfile object (pysam)
+    - chrom: chromsome/sequence of interest
+    - positions: list of (zero-offset) positions to analyze (note, use long if necessary)
+    - min_mq: filter reads with mapping qualiy below this value
+    - min_bq: filter bases with call quality below this value
     
     Note, will only report counts that overlap *all* positions.
     """
 
     assert len(positions)>=2 and min(positions)>=0
+    assert chrom in sam.references
+    assert max(positions) < sam.lengths[sam.references.index(chrom)]
     
     num_dups = 0
     num_anomalous = 0
@@ -108,6 +121,7 @@ def joined_counts(sam, chrom, positions, min_mq=13):
     # use mpileup() instead of fetch().
 
     for alnread in sam.fetch(chrom, min(positions), max(positions)+1):
+        # FIXME +1 necessary?
         assert not alnread.is_unmapped # paranoia
 
         if alnread.is_duplicate:
@@ -135,11 +149,21 @@ def joined_counts(sam, chrom, positions, min_mq=13):
 
         # create a map of ref position (key; long int(!)) and the
         # corresponding query (clipped read) nucleotides (value)
+        #
+        # pos_nt_map = dict([(rpos, alnread.query[qpos])
+        #                   for (qpos, rpos) in alnread.aligned_pairs 
+        #                  if qpos!=None and rpos!=None])
+        #                   # can't just use if qpos and rpos since
+        #                   # they might be 0
+        aln_pairs = [(qpos, rpos) for (qpos, rpos) in alnread.aligned_pairs
+                     if qpos!=None and rpos!=None]
+                     # can't just use if qpos and rpos since
+                     # they might be 0
         pos_nt_map = dict([(rpos, alnread.query[qpos])
-                           for (qpos, rpos) in alnread.aligned_pairs 
-                           if qpos!=None and rpos!=None])
-                           # can't just use if qpos and rpos since
-                           # they might be 0
+                           for (qpos, rpos) in aln_pairs
+                           if ord(alnread.qqual[qpos])-33 >= min_bq])
+                           # MQs come as ints in pysam, but BQs are
+                           # ASCII-encoded?
                            
         # create read-id which is identical for PE reads. NOTE: is
         # there another way to identify pairs? Using the name only is
@@ -214,7 +238,6 @@ def main():
         LOG.fatal("Positions need to be >=1")
         parser.print_usage(sys.stderr)
         sys.exit(1)
-    LOG.critical("Check if any positions >(=?) ref length")
 
     if args.ref_fa:
         fastafile = pysam.Fastafile(args.ref_fa)
@@ -230,8 +253,11 @@ def main():
             print "Reference at pos %d: %s" % (pos+1, refbase)
             
     sam = pysam.Samfile(args.bam, "rb")
-
-    counts = joined_counts(sam, args.chrom, positions, args.min_mq)
+    if args.chrom not in sam.references:
+        LOG.fatal("Chromosome/Sequence %s not found in %s" % (
+            args.chrom, args.bam))
+    counts = joined_counts(sam, args.chrom, positions, 
+                           args.min_mq, args.min_bq)
     counts_sum = sum(counts.values())
     for k in sorted(counts.keys()):
         if counts[k]:
@@ -239,6 +265,7 @@ def main():
 
     
 if __name__ == "__main__":
-    LOG.critical("TEST: MQ filter, position overlap, counts etc")
+    LOG.critical("TEST: counts, MQ filter, BQ filter, position overlap")
+    LOG.critical("IMPLEMENT: vcf input (opt: only report cons/var counts) and (sliding: +1 var) window arg")
     main()
     LOG.info("Successful exit")
