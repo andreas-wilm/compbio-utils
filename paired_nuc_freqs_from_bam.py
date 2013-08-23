@@ -174,4 +174,5 @@ def main():
     
 if __name__ == "__main__":
     main()
+    LOG.warn("You might want to use the more powerful joined_freqs_from_bam.py instead")
     LOG.info("Successful exit")

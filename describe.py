@@ -77,7 +77,7 @@ def main():
     arr = numpy.fromiter(iterable, numpy.float)
 
 
-    print "sum:\t%d" % (arr.sum())
+    print "sum:\t%f" % (arr.sum())
     # scipy.stats.describe already covers a lot
     describe_names = ["size", "(min, max)", "arithmetic mean", 
                       "unbiased variance", "biased skewness", 
