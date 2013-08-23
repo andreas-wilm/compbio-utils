@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """Compute some basic statistics on numerical data, read as one data
-point (float) per line.
-"""
+point (float) per line."""
 
 #--- standard library imports
 #
@@ -97,6 +96,8 @@ def main():
     lower_q = (stats.scoreatpercentile(arr, 25)) # q1
     upper_q = (stats.scoreatpercentile(arr, 75)) # q3
     iqr = upper_q-lower_q
+    std = numpy.std(arr)
+    print "std:\t%f" % (std)
     #whisker = 1.5*iqr
     #print "IQR:\t%f" % iqr
     for p in [1, 5, 10]:
