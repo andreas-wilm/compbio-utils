@@ -25,7 +25,7 @@ BEGIN {max=-2147483648; min=max*-1}
   binno=int($1/win); bin[binno]+=1;
   if (binno<min) {min=binno};
   if (binno>max) {max=binno};
-  printf "DEBUG in=%f binno=%f min=%f max=%f\n", $1, binno, min, max
+  #printf "DEBUG in=%f binno=%f min=%f max=%f\n", $1, binno, min, max
 }
 END {
   print "# from", "to", "count"
