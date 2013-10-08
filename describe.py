@@ -100,7 +100,7 @@ def main():
     print "std:\t%f" % (std)
     #whisker = 1.5*iqr
     #print "IQR:\t%f" % iqr
-    for p in [1, 5, 10]:
+    for p in [1, 5, 10, 90, 95, 99]:
         print "%dth percentile:\t%f" % (p, stats.scoreatpercentile(arr, p))
     print "# five number summary"
     # FIXME different to http://en.wikipedia.org/wiki/Five-number_summary
