@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -o pipefail
+
 # Decontaminate FastQ (single-end, paired-end, optionally gzipped) by
 # mapping against a contamination source
 
@@ -39,12 +41,14 @@ $PICARDDIR_DEFAULT otherwise)
     -r | --ref       : Reference (contamination source) fasta file
     -o | --outprefix : Output prefix
   Optional:
-    -h | --help      : Display this help
     -g | --fastq2    : Fastq[.gz], second in pair (optional)
-    -k | --keep      : Keep temp directory
     -t | --threads   : Number of threads to use (default=$threads)
-         --illumina  : Phred qualities are ASCII64, ie. Illumina 1.3-1.7 instead of Sanger (check with FastQC)
-         --tmpdir    : Use this as temp directory instead of automatically determined one
+    -I | --illumina  : Phred qualities are ASCII64, ie. Illumina 1.3-1.7 instead of Sanger (check with FastQC)
+    -T | --tmpdir    : Use this as temp directory instead of automatically determined one
+    -K | --keep      : Keep temp directory
+    -B | --reusebam  : Reuse already created BAM, which contains unmapped reads and reads mapped against the contaminant
+                       Still needs original fastq files for auto setting of output filenames and determining SR or PE.
+    -h | --help      : Display this help
 EOF
 }
 
@@ -69,6 +73,9 @@ fi
 
 # parse arguments
 #
+reusebam=""
+reffa=""
+fastq1=""
 while [ "$1" != "" ]; do
     case $1 in
         -f | --fastq1 )
@@ -85,10 +92,10 @@ while [ "$1" != "" ]; do
             usage
             exit
             ;;
-        --illumina )
+        -I | --illumina )
             illumina=1
             ;;
-        -k | --keep )
+        -K | --keep )
             keep_temp=1
             ;;
         -o | --outprefix )           
@@ -104,9 +111,14 @@ while [ "$1" != "" ]; do
             shift
             threads=$1
             ;;
-        --tmpdir )
+        -T | --tmpdir )
             shift
             tmpdir=$1
+            ;;
+        -B | --reusebam )
+            shift
+            reusebam=$1
+            test -e $reusebam || exit 1
             ;;
         * ) 
             echofatal "unknown argument \"$1\""
@@ -123,7 +135,7 @@ if [ -z "$fastq1" ]; then
     usage
     exit 1
 fi
-if [ -z "$reffa" ]; then
+if [ -z "$reffa" ] && [ -z "$reusebam" ]; then
     echofatal "reference fasta file \"$reffa\" missing"
     usage
     exit 1
@@ -160,9 +172,13 @@ done
 #
 
 # index reference if necessary
-test -s ${reffa}.pac || bwa index $reffa || exit 1
-
+if [ -n "$reffa" ]; then
+    test -s ${reffa}.pac || bwa index $reffa || exit 1
+fi
 allbam=$tmpdir/all.bam
+if [ -n "$reusebam" ]; then
+    allbam=$reusebam
+fi
 bwalog=$tmpdir/bwa.log
 
 
@@ -269,7 +285,7 @@ done
 execlog=${outprefix}_decont-exec.log
 samtools view -bS - < $contbam_fifo > $contbam 2>>$execlog &
 gzip < $fastq_clean_1_fifo > ${fastq_clean_1}.gz 2>>$execlog &
-if [ -z $fastq2 ]; then
+if [ -z "$fastq2" ] && [ ! -s "$allbam" ]; then
     echofatal "Filtering for SE reads not yet implemented (awk cmd)"
     exit 1
 else
