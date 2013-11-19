@@ -9,7 +9,7 @@ import sys
 #--- third-party imports
 #
 import numpy
-from scipy import stats
+from scipy.stats import scoreatpercentile, describe
 
 #--- project specific imports
 #
@@ -22,6 +22,49 @@ __email__ = "andreas.wilm@gmail.com"
 __license__ = "The MIT License (MIT)"
 
 
+def adv_stats(arr):
+    """FIXME:add-doc
+    """
+
+    print "sum:\t%f" % (arr.sum())
+    # scipy.stats.describe already covers a lot
+    describe_names = ["size", "(min, max)", "arithmetic mean", 
+                      "unbiased variance", "biased skewness", 
+                      "biased kurtosis"]
+    describe_result = dict(zip(describe_names, describe(arr)))
+    for k in describe_names:
+        v = describe_result[k]
+        if k == "(min, max)":
+            # used later
+            min = v[0]
+            max = v[1]
+            continue
+        print "%s: %f" % (k, v)
+    # ...but not percentiles
+    median = scoreatpercentile(arr, 50)
+    lower_q = (scoreatpercentile(arr, 25)) # q1
+    upper_q = (scoreatpercentile(arr, 75)) # q3
+    iqr = upper_q-lower_q
+    std = numpy.std(arr)
+    print "std:\t%f" % (std)
+    #whisker = 1.5*iqr
+    #print "IQR:\t%f" % iqr
+    for p in [1, 5, 10, 90, 95, 99]:
+        print "%dth percentile:\t%f" % (p, scoreatpercentile(arr, p))
+    print "# five number summary"
+    # FIXME different to http://en.wikipedia.org/wiki/Five-number_summary
+    # echo 0, 0, 1, 2, 63, 61, 27, 13, | tr ',' '\n' | describe.py 
+    # quartiles differ
+    print "min:\t%f" % (min)
+    print "q1:\t%f" % (lower_q)
+    #print "lower hinge:\t%f" % (median-whisker)
+    print "median:\t%f" % (median)
+    #print "upper hinge:\t%f" % (median+whisker)
+    print "q3:\t%f" % (upper_q)
+    print "max:\t%f" % (max)
+
+
+    
 def basic_stats(arr):
     """Compute basic statistics on the given data
 
@@ -41,15 +84,22 @@ def basic_stats(arr):
     # the functions name
     func_list = [
             (len, None, "length"),
-            (numpy.min, None, "minimum"),
-            (numpy.max, None, "maximum"),
+            (numpy.min, None, "min"),
+            (numpy.max, None, "max"),
             (numpy.sum, None, "sum"),
             (numpy.mean, None, "mean"),
             (numpy.std, None, "stdv"),
-            (numpy.median, None, "median")
             ]
-    for p in [1, 5, 10, 25, 50, 75, 90, 95, 99]:
-        func_list.append((numpy.percentile, p, "%dth percentile" % p))
+    for p in [1, 5, 25, 50, 75, 95, 99]:
+        if p == 50:
+            name = "median"
+        elif p == 75:
+            name = "q3"
+        elif p == 25:
+            name = "q1"
+        else:
+            name = "%dth %%tile" % p
+        func_list.append((numpy.percentile, p, name))
 
     # call each function and store its name as well as the result
     for (func, arg, name) in func_list:
@@ -63,10 +113,24 @@ def basic_stats(arr):
 
 
 def main():
+    """main function
     """
-    """
-    if len(sys.argv) == 2 and sys.argv[1] != "-":
-        fh = open(sys.argv[1], 'r')
+
+    VALID_MODES = ['basic', 'advanced']
+    
+    if len(sys.argv) < 2:
+        sys.stderr.write("ERROR: Need at least mode argument (one of %s)\n" % (
+            ', '.join(VALID_MODES)))
+        sys.exit(1)
+        
+    mode = sys.argv[1]
+    if mode not in VALID_MODES:
+        sys.stderr.write("ERROR: First arg needs to be mode (one of %s)\n" % (
+            ', '.join(VALID_MODES)))
+        sys.exit(1)
+        
+    if len(sys.argv) == 3 and sys.argv[2] != "-":
+        fh = open(sys.argv[2], 'r')
     else:
         fh = sys.stdin
                 
@@ -76,44 +140,14 @@ def main():
     iterable = (float(line) for line in fh if len(line.strip())>0)
     arr = numpy.fromiter(iterable, numpy.float)
 
-
-    print "sum:\t%f" % (arr.sum())
-    # scipy.stats.describe already covers a lot
-    describe_names = ["size", "(min, max)", "arithmetic mean", 
-                      "unbiased variance", "biased skewness", 
-                      "biased kurtosis"]
-    describe_result = dict(zip(describe_names, stats.describe(arr)))
-    for k in describe_names:
-        v = describe_result[k]
-        if k == "(min, max)":
-            # used later
-            min = v[0]
-            max = v[1]
-            continue
-        print "%s: %f" % (k, v)
-    # ...but not percentiles
-    median = stats.scoreatpercentile(arr, 50)
-    lower_q = (stats.scoreatpercentile(arr, 25)) # q1
-    upper_q = (stats.scoreatpercentile(arr, 75)) # q3
-    iqr = upper_q-lower_q
-    std = numpy.std(arr)
-    print "std:\t%f" % (std)
-    #whisker = 1.5*iqr
-    #print "IQR:\t%f" % iqr
-    for p in [1, 5, 10, 90, 95, 99]:
-        print "%dth percentile:\t%f" % (p, stats.scoreatpercentile(arr, p))
-    print "# five number summary"
-    # FIXME different to http://en.wikipedia.org/wiki/Five-number_summary
-    # echo 0, 0, 1, 2, 63, 61, 27, 13, | tr ',' '\n' | describe.py 
-    # quartiles differ
-    print "min:\t%f" % (min)
-    print "q1:\t%f" % (lower_q)
-    #print "lower hinge:\t%f" % (median-whisker)
-    print "median:\t%f" % (median)
-    #print "upper hinge:\t%f" % (median+whisker)
-    print "q3:\t%f" % (upper_q)
-    print "max:\t%f" % (max)
-
+    if mode == "basic":
+        for (rname, rval) in basic_stats(arr):
+            print "%s\t%s" % (rname, rval)
+    elif mode == "advanced":
+        adv_stats(arr)
+    else:
+        raise ValueError, ("Unknown mode %s" % mode)
+        
     #print "DEBUG: %s" % arr
     if fh != sys.stdin:
         fh.close()
