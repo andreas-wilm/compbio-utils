@@ -2,7 +2,7 @@
 """Explains samflag. Similar to http://picard.sourceforge.net/explain-flags.html
 """
 
-import sys
+import os, sys
 
 # from http://samtools.sourceforge.net/SAMv1.pdf
 # and http://picard.sourceforge.net/explain-flags.html
@@ -42,14 +42,19 @@ def explain_samflag(flag):
 def main():
     """main function
     """
-    
+
+    if '-h' in sys.argv:
+        sys.stderr.write("Usage %s [flag]:\n" % (os.path.basename(sys.argv[0])))
+        sys.stderr.write("Expects SAM flag as int as only argument."
+                         " Otherwise all flags will be listed\n")
+        sys.exit(0)
     try:
         flag = int(sys.argv[1])
+        explain_samflag(flag)
     except:
-        sys.stderr.write("Expect one argument: sam flag as int")
-        sys.exit(1)
-        
-    explain_samflag(flag)
+        for (bit, sam_descr, pic_descr) in SAM_FLAG_BITS:
+            print "0x%x: %s / %s" % (bit, sam_descr, pic_descr)
+    
 
     
         
