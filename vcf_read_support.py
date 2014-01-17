@@ -1,8 +1,11 @@
 #!/usr/bin/env python
-"""Extract reads supporting variants (or reference) listed in vcf file
+"""Extract reads overlapping variant positions and tag them according
+to whether they support a variant or the reference.
 
-Output SAM with extra tag VV:Z:chr:pos-pos:ref>alt
-where chr, pos, ref and alt correspond to the variant of question
+Output SAM with extra tag key:Z:chr:pos:ref>alt where chr, pos, ref
+and alt correspond to the variant of question. For reads supporting
+variants key is 'VV', for those supporting the reference it's VR,
+otherwise the read will not be written
 """
 
 __author__ = "Andreas Wilm"
@@ -65,8 +68,11 @@ def cmdline_parser():
                         required=True,
                         help="Input BAM file matching vcf")
     parser.add_argument("-i", "--vcf",
-                        required=True,
-                        help="Input VCF file containing variants to analyze")
+                        help="Input VCF file containing variants to analyze"
+                        " (clashes with --var)")
+    parser.add_argument("-v", "--var",
+                        help="Report reads for this variant only. Format: chr:pos:ref-alt"
+                        " (clashes with --vcf)")
     default = 0
     parser.add_argument("--mq-filter",
                         dest="min_mq",
@@ -82,11 +88,6 @@ def cmdline_parser():
     parser.add_argument("-a", "--use-orphan",
                         action="store_true",
                         help="Don't ignore orphan-reads / anomalous read-pairs")
-
-    parser.add_argument("-r", "--ref-only",
-                        action="store_true",
-                        help="Print reads supporting reference"
-                        " instead of variant base")
 
     return parser
 
@@ -137,19 +138,37 @@ def main():
 
     sam_out_fh = pysam.Samfile("-", "w", template=sam_in_fh)
 
-    # setup vcf_reader
-    # 
-    if args.vcf == '-':
-        vcf_reader = simple_vcf_reader(sys.stdin)
-    else:
-        if args.vcf[-3:] == '.gz':
-            vcf_reader = simple_vcf_reader(gzip.open(args.vcf))
+    # variants
+    #
+    #
+    if args.vcf and args.var:
+        LOG.fatal("Please use one: vcf or variant arg, but bot both")
+        sys.exit(1)
+    if args.vcf: 
+        if args.vcf == '-':
+            vcf_reader = simple_vcf_reader(sys.stdin)
         else:
-            vcf_reader = simple_vcf_reader(open(args.vcf))
-            
-    variants = [r for r in vcf_reader]
-    LOG.info("Loaded %d variants from %s" % (len(variants), args.vcf))
-    
+            if args.vcf[-3:] == '.gz':
+                vcf_reader = simple_vcf_reader(gzip.open(args.vcf))
+            else:
+                vcf_reader = simple_vcf_reader(open(args.vcf))
+        variants = [r for r in vcf_reader]
+        LOG.info("Loaded %d variants from %s" % (len(variants), args.vcf))
+        
+    elif args.var:
+        try:
+            (chrom, pos, ref_alt) = args.var.split(":")
+            (ref, alt) = ref_alt.split('-')
+            pos = int(pos)-1
+        except:
+            LOG.fatal("Couldn't parse variant %s" % args.var)
+            sys.exit(1)
+        variants = [Variant(chrom, pos, ".", ref, alt, ".", ".", dict())]
+        
+    else:       
+        LOG.critical("Missing vcf or variant argument") 
+        sys.exit(1)
+        
     for var in variants:
         if var.info.has_key('INDEL'):
             LOG.warn("Skipping unsupported indel variant at %s:%d" % (
@@ -184,7 +203,7 @@ def main():
                             if vpos_on_ref==var.pos]
             assert len(vpos_on_read)==1
             vpos_on_read = vpos_on_read[0]
-            if vpos_on_read == None:# skip deletions
+            if vpos_on_read == None:# FIXME no support for deletions
                 continue
 
             b = r.query[vpos_on_read]
@@ -205,20 +224,34 @@ def main():
 
             # only way I found to add tags. inspired by
             # http://www.ngcrawford.com/2012/04/17/python-adding-read-group-rg-tags-to-bam-or-sam-files/
-            var_tag = ('VV', '%s:%d-%d:%s>%s' % (
-                var.chrom, var.pos+1, var.pos+1, var.ref, var.alt))
+
+            if has_ref:
+                var_tag_key = 'VR'
+            elif has_var:
+                var_tag_key = 'VV'
+            else:
+                continue# paranoia (already handled above)
+            assert var_tag_key not in [t[0] for t in r.tags], (
+                "Oops...tag %s already present in read. Refusing to overwrite")
+            var_tag = (var_tag_key, '%s:%d:%s>%s' % (
+                var.chrom, var.pos+1, var.ref, var.alt))
             new_tags = r.tags
             new_tags.append(var_tag)
             r.tags = new_tags
              
-            if has_ref and args.ref_only:
-                sam_out_fh.write(r)
-            elif has_var and not args.ref_only:
-                sam_out_fh.write(r)
+            sam_out_fh.write(r)
 
     sam_in_fh.close()
     # FIXME close sam out if not stdout
+
+    # FIXME untangle and move to functions
     
+    # FIXME add tests:
+    #  1:
+    #    vcf_read_support.py -b bam -v var | grep -c var
+    #    should give same as
+    #    vcf_read_support.py -b bam -i vcf -b bam | grep -c var
+    # ...
     
 if __name__ == "__main__":
     main()
