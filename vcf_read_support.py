@@ -136,7 +136,7 @@ def main():
         "BAM file %s does not exist" % args.bam)
     sam_in_fh = pysam.Samfile(args.bam)
 
-    sam_out_fh = pysam.Samfile("-", "w", template=sam_in_fh)
+    sam_out_fh = pysam.Samfile("-", "wh", template=sam_in_fh)
 
     # variants
     #
