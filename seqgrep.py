@@ -47,11 +47,13 @@ def cmdline_parser():
             "usage: %prog [options] file[s]"
     parser = OptionParser(usage=usage)
 
-    choices = ['seq', 'id']
+    CHOICES = ['seq', 'id']
+    DEFAULT = "seq"
     parser.add_option("-s", "--search-in",
                       dest="search_in",
-                      default="id", choices=choices,
-                      help="Search in sequence or its name (%s)" % (choices))
+                      default=DEFAULT, 
+                      choices=CHOICES,
+                      help="Search in sequence or its name (one of %s; defaults %s)" % (CHOICES, DEFAULT))
     parser.add_option("", "--verbose",
                       action="store_true", 
                       dest="verbose",
@@ -70,6 +72,9 @@ def cmdline_parser():
     parser.add_option("-v", "--invert-match",
                       action="store_true", dest="invert_match",
                       help="invert sense of matching")
+    parser.add_option("-o", "--report-pos-match",
+                      action="store_true", dest="report_pos",
+                      help="report only matching string and position")
     return parser
 
 
@@ -106,7 +111,14 @@ def main():
         regexp = re.compile(pattern_arg, flags=re.IGNORECASE)
     else:
         regexp = re.compile(pattern_arg)
-
+        
+    if opts.invert_match and opts.report_pos:
+        LOG.fatal("Can't do reverse match and report pos")
+        sys.exit(1)
+    if opts.report_pos and opts.search_in == 'id':
+        LOG.fatal("Report position in id search doesn't make sense")
+        sys.exit(1)
+    report_pos = opts.report_pos
         
     for fseq in seqfiles_arg:
         if fseq != "-" and not os.path.exists(fseq):
@@ -130,7 +142,7 @@ def main():
         if not fmt:
             fmt = 'fasta'
         LOG.info("Checking file %s (format %s)" % (fseq, fmt))
-        
+
         for record in SeqIO.parse(fhandle, fmt):
             #LOG.debug("checking seq %s (len %d)" % (record.id, len(record.seq)))
 
@@ -148,12 +160,14 @@ def main():
                     "internal error...not sure where to search in")
             
             target = str(target)
-            match = regexp.search(target) 
             print_match = False
-            if match and not opts.invert_match:
-                LOG.debug("match.string=%s" % match.string)
+            matches = []
+            for m in regexp.finditer(target): 
+                matches.append((m.start(), m.end(), m.group(0)))
+                                
+            if matches and not opts.invert_match:
                 print_match = True
-            elif opts.invert_match and not match:
+            elif opts.invert_match and not matches:
                 print_match = True
 
             if print_match:
@@ -161,10 +175,12 @@ def main():
                 prefix = ""
                 if print_file_prefix:
                     prefix = fseq + ":"
-                if fmt == 'fasta':
-                    print "%s>%s\n%s%s" % (prefix, record.description, prefix, record.seq)
+                if report_pos:
+                    for m in matches:
+                        print "%s>%s\n%s%d %d %s" % (prefix, record.id, prefix, m[0]+1, m[1], m[2])
                 else:
                     print "%s>%s\n%s%s" % (prefix, record.id, prefix, record.seq)
+                    
         if fhandle != sys.stdin:
             fhandle.close()
             
