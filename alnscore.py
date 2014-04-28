@@ -21,8 +21,7 @@ import os
 import sys
 from math import log
 import logging
-# optparse deprecated from Python 2.7 on
-from optparse import OptionParser
+import argparse
 from collections import Counter
 
 #--- third-party imports
@@ -31,15 +30,8 @@ from Bio import AlignIO
 
 #--- project specific imports
 #
-import bioutils
-
-# invocation of ipython on exceptions
-if False:
-    import sys, pdb
-    from IPython.core import ultratb
-    sys.excepthook = ultratb.FormattedTB(
-        mode='Verbose', color_scheme='Linux', call_pdb=1)
-
+from bioutils import GAP_CHARS
+from bioutils import guess_seqformat
         
 __author__ = "Andreas Wilm"
 __version__ = "0.1"
@@ -67,47 +59,48 @@ def shannon_entropy(l, b=2):
     
 def cmdline_parser():
     """
-    creates an OptionParser instance
     """
 
-    # http://docs.python.org/library/optparse.html
-    usage = "%prog: " + __doc__ + "\n" \
-            "usage: %prog [options]"
-    parser = OptionParser(usage=usage)
+    parser = argparse.ArgumentParser(description=__doc__)
 
-    parser.add_option("", "--verbose",
+    parser.add_argument("--verbose",
                       action="store_true", dest="verbose",
                       help="be verbose")
-    parser.add_option("", "--debug",
+    parser.add_argument("--debug",
                       action="store_true", dest="debug",
                       help="debugging")
-    parser.add_option("-i", "--aln",
+    parser.add_argument("-i", "--aln",
                       dest="aln_in",
                       help="Input alignment or '-' for stdin")
-    parser.add_option("-m", "--map-to",
+    parser.add_argument("-m", "--map-to",
                       dest="map_to",
                       help="If given, using unaligned positions of this"
-                      " seq instead of aligned pos (skipping pos with gaps in this seq)")
+                      " seq instead of aligned pos (skipping pos with"
+                      " gaps in this seq)")
+    parser.add_argument("--ignore",
+                      dest="ign_seqs",
+                      nargs="+",
+                      help="If given, ignore these sequences for score"
+                      " computation")
     return parser
 
 
 def seqid(colctr):
     """colctr has to be collections.Counter for residues in an
-    alignment column
+    alignment column. if it contains gaps, they will be considered
     """
+
     for (res, count) in colctr.most_common():
-        if res not in bioutils.GAP_CHARS:
-            return count/float(sum(colctr.values()))
-    # can only happen if only gaps
-    return 0.0    
+        return count/float(sum(colctr.values()))
+    raise ValueError
 
 
-def get_aln_column(aln, col_no):
-    """Replacement for depreacted Alignment.get_column()
-    """
-    assert col_no < aln.get_alignment_length() 
-    # get_column() and get_all_seq() deprecated
-    return ''.join([s.seq[col_no] for s in aln])
+#def get_aln_column(aln, col_no):
+#    """Replacement for depreacted Alignment.get_column()
+#    """
+#    assert col_no < aln.get_alignment_length() 
+#    # get_column() and get_all_seq() deprecated
+#    return ''.join([s.seq[col_no] for s in aln])
 
 
 def unaln_pos_map(seq):
@@ -117,7 +110,7 @@ def unaln_pos_map(seq):
     map_to_seq_cols = []
     gap_ctr = 0
     for i in range(len(seq)):
-        if seq[i] in bioutils.GAP_CHARS:
+        if seq[i] in GAP_CHARS:
             gap_ctr += 1
         map_to_seq_cols.append(i-gap_ctr)
         if map_to_seq_cols[-1] < 0:
@@ -131,38 +124,38 @@ def main():
     """
 
     parser = cmdline_parser()
-    (opts, args) = parser.parse_args()
+    args = parser.parse_args()
 
-    if opts.verbose:
+    if args.verbose:
         LOG.setLevel(logging.INFO)
-    if opts.debug:
+    if args.debug:
         LOG.setLevel(logging.DEBUG)
-    if not opts.aln_in:
+    if not args.aln_in:
         parser.error("Missing input alignment argument\n")
         sys.exit(1)
-    if len(args):
-        parser.error("Unrecognized arguments found: %s" % args)
-        
-    char_set = "ACGTU"
-    char_set = "ACDEFGHIKLMNPQRSTVWY"
+
+
+    #char_set = "ACGTU"
+    #char_set = "ACDEFGHIKLMNPQRSTVWY"
     #x = any
     #z = Gln or Glu
     #b = Asp or Asn
     char_set = "ACGTN"
-
+    char_set_ambig = "N"
+    
     LOG.warn("using hardcoded charset %s" % char_set)
     # FIXME auto-detection of alphabet)
     
-    if opts.aln_in != "-" and not os.path.exists(opts.aln_in):
-        LOG.fatal("Input alignment %s does not exist.\n" % opts.aln_in)
+    if args.aln_in != "-" and not os.path.exists(args.aln_in):
+        LOG.fatal("Input alignment %s does not exist.\n" % args.aln_in)
         sys.exit(1)
 
-    if opts.aln_in == "-":
+    if args.aln_in == "-":
         fh = sys.stdin
         fmt = 'fasta'
     else:
-        fmt = bioutils.guess_seqformat(opts.aln_in)
-        fh = open(opts.aln_in, "rU")
+        fmt = guess_seqformat(args.aln_in)
+        fh = open(args.aln_in, "rU")
                 
     entropy_per_col = []    
     seqid_per_col = []    
@@ -172,60 +165,90 @@ def main():
     # if requested, get sequence record for the sequence we should
     # positions to
     map_to_seq = None
-    if opts.map_to:
-        map_to_seq = [rec.seq for rec in aln if rec.id == opts.map_to]
+    if args.map_to:
+        map_to_seq = [rec.seq for rec in aln if rec.id == args.map_to]
         if not len(map_to_seq):
             LOG.fatal("Couldn't find a sequence called %s in %s" % (
-                opts.map_to, fh.name))
+                args.map_to, fh.name))
             sys.exit(1)
         elif len(map_to_seq)>1:
             LOG.fatal("Find more than one sequence with name %s in %s" % (
-                opts.map_to, fh.name))
+                args.map_to, fh.name))
             sys.exit(1)
         map_to_seq = map_to_seq[0]
         map_to_seq_cols = unaln_pos_map(map_to_seq)
+
+    ign_idxs = []
+    if args.ign_seqs:
+        for s in args.ign_seqs:
+            found = False
+            for (i, r) in enumerate([r.id for r in aln]):
+                if r==s:
+                    ign_idxs.append(i)
+                    found = True
+                    break
+            if not found:
+                LOG.warn("No match for ignore sequence %s in alignment" % s)
+    LOG.debug("ign_idxs = %s" % ign_idxs)
+
+    
+    for cidx in xrange(aln.get_alignment_length()):
+        col =  list(aln[:, cidx].upper())
         
-    for i in xrange(aln.get_alignment_length()):
-        #col = aln.get_column(i) # deprecated
-        col = get_aln_column(aln, i).upper()
-        not_in_char_set = [c for c in col if c not in char_set]
-        not_in_char_set = [c for c in not_in_char_set if c not in bioutils.GAP_CHARS]        
-        if len(not_in_char_set):
-            LOG.warn("Found characters not in char_set (%s) in col %d (%s)" % (
-                char_set, i+1, set(not_in_char_set)))
+        # ignore chars as requested from ign_seqs
+        for i in ign_idxs:
+            del col[i]
+        del i
+
+        # replace unknown characters with ambiguity symbol
+        unknown_chars = []
+        for (i, c) in enumerate(col):
+            if c not in char_set and c not in GAP_CHARS:
+                unknown_chars.append(c)
+                col[i] = char_set_ambig
+            elif c in GAP_CHARS:
+                col[i] = "-"
+                
+        unknown_chars = set(unknown_chars)
+        if len(unknown_chars):
+            LOG.warn("Found unknown characters in col %d (%s) and replaced them with %c" % (
+                cidx+1, unknown_chars, char_set_ambig))
+            
         counter = Counter(col)
-
-        vec = []
-        # this will ignore invalid chars incl. ambiguities        
-        denom = sum([counter[r] for r in char_set])
+        denom = sum(counter.values())
         if denom == 0:
-            LOG.fatal("denom = 0, means no valid chars in col %d?" % (i+1))
+            LOG.warn("No valid chars in col %d (col=%s)?" % (cidx+1, col))
             #import pdb; pdb.set_trace()
-            raise ValueError
-        for res in char_set:
-            vec.append(counter[res]/float(denom))
-        LOG.debug("vec=%s denom=%s counter=%s" % (vec, denom, counter))
-        entropy_per_col.append(shannon_entropy(vec))
+            #raise ValueError
+            entropy_per_col.append(-1)
+            seqid_per_col.append(-1)
+        else:
+            vec = []
+            # count gaps for entropy 
+            for res in list(char_set) + ["-"]:
+                vec.append(counter[res]/float(denom))
+            LOG.debug("vec=%s denom=%s counter=%s" % (vec, denom, counter))
+            entropy_per_col.append(shannon_entropy(vec))
+            seqid_per_col.append(seqid(counter))
 
-        seqid_per_col.append(seqid(counter))
 
         # due to the fact that we keep all values (which is actually
         # not necessary but would come in handy if values were
         # precalculated) we cannot simply continue or there would be
         # some missing. 'continue/next' here if needed.
-        if map_to_seq and map_to_seq[i] in bioutils.GAP_CHARS:
-            LOG.debug("Skipping col %d because map_to_seq has gap there." % (i+1))
+        if map_to_seq and map_to_seq[cidx] in GAP_CHARS:
+            LOG.debug("Skipping col %d because map_to_seq has gap there." % (cidx+1))
             continue
 
         counts_str = ' '.join(
             ["%s:%d" % (k,v) for (k,v) in sorted(counter.iteritems())])
         if not map_to_seq:
-            rep_col = i
+            rep_col = cidx
         else: 
-            rep_col = map_to_seq_cols[i]
+            rep_col = map_to_seq_cols[cidx]
         print "%d %.6f %.6f %s" % (
-            rep_col+1 if not map_to_seq else map_to_seq_cols[i]+1, 
-            seqid_per_col[i], entropy_per_col[i], counts_str)
+            rep_col+1 if not map_to_seq else map_to_seq_cols[cidx]+1, 
+            seqid_per_col[cidx], entropy_per_col[cidx], counts_str)
 
     if fh != sys.stdout:
         fh.close()
