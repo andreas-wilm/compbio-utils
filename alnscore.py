@@ -30,8 +30,8 @@ from Bio import AlignIO
 
 #--- project specific imports
 #
-import bioutils
-
+from bioutils import GAP_CHARS
+from bioutils import guess_seqformat
         
 __author__ = "Andreas Wilm"
 __version__ = "0.1"
@@ -87,13 +87,12 @@ def cmdline_parser():
 
 def seqid(colctr):
     """colctr has to be collections.Counter for residues in an
-    alignment column
+    alignment column. if it contains gaps, they will be considered
     """
+
     for (res, count) in colctr.most_common():
-        if res not in bioutils.GAP_CHARS:
-            return count/float(sum(colctr.values()))
-    # can only happen if only gaps
-    return 0.0    
+        return count/float(sum(colctr.values()))
+    raise ValueError
 
 
 #def get_aln_column(aln, col_no):
@@ -111,7 +110,7 @@ def unaln_pos_map(seq):
     map_to_seq_cols = []
     gap_ctr = 0
     for i in range(len(seq)):
-        if seq[i] in bioutils.GAP_CHARS:
+        if seq[i] in GAP_CHARS:
             gap_ctr += 1
         map_to_seq_cols.append(i-gap_ctr)
         if map_to_seq_cols[-1] < 0:
@@ -134,14 +133,16 @@ def main():
     if not args.aln_in:
         parser.error("Missing input alignment argument\n")
         sys.exit(1)
-        
-    char_set = "ACGTU"
-    char_set = "ACDEFGHIKLMNPQRSTVWY"
+
+
+    #char_set = "ACGTU"
+    #char_set = "ACDEFGHIKLMNPQRSTVWY"
     #x = any
     #z = Gln or Glu
     #b = Asp or Asn
     char_set = "ACGTN"
-
+    char_set_ambig = "N"
+    
     LOG.warn("using hardcoded charset %s" % char_set)
     # FIXME auto-detection of alphabet)
     
@@ -153,7 +154,7 @@ def main():
         fh = sys.stdin
         fmt = 'fasta'
     else:
-        fmt = bioutils.guess_seqformat(args.aln_in)
+        fmt = guess_seqformat(args.aln_in)
         fh = open(args.aln_in, "rU")
                 
     entropy_per_col = []    
@@ -190,44 +191,52 @@ def main():
                 LOG.warn("No match for ignore sequence %s in alignment" % s)
     LOG.debug("ign_idxs = %s" % ign_idxs)
 
+    
     for cidx in xrange(aln.get_alignment_length()):
         col =  list(aln[:, cidx].upper())
+        
         # ignore chars as requested from ign_seqs
         for i in ign_idxs:
             del col[i]
         del i
-        
-        not_in_char_set = [c for c in col if c not in char_set]
-        not_in_char_set = [c for c in not_in_char_set 
-                           if c not in bioutils.GAP_CHARS]        
-        if len(not_in_char_set):
-            LOG.warn("Found characters not in char_set (%s) in col %d (%s)" % (
-                char_set, cidx+1, set(not_in_char_set)))
-        counter = Counter(col)
 
-        vec = []
-        # this will ignore invalid chars incl. ambiguities        
-        denom = sum([counter[r] for r in char_set])
+        # replace unknown characters with ambiguity symbol
+        unknown_chars = []
+        for (i, c) in enumerate(col):
+            if c not in char_set and c not in GAP_CHARS:
+                unknown_chars.append(c)
+                col[i] = char_set_ambig
+            elif c in GAP_CHARS:
+                col[i] = "-"
+                
+        unknown_chars = set(unknown_chars)
+        if len(unknown_chars):
+            LOG.warn("Found unknown characters in col %d (%s) and replaced them with %c" % (
+                cidx+1, unknown_chars, char_set_ambig))
+            
+        counter = Counter(col)
+        denom = sum(counter.values())
         if denom == 0:
             LOG.warn("No valid chars in col %d (col=%s)?" % (cidx+1, col))
             #import pdb; pdb.set_trace()
             #raise ValueError
-            for res in char_set:
-                vec.append(-1)
             entropy_per_col.append(-1)
+            seqid_per_col.append(-1)
         else:
-            for res in char_set:
+            vec = []
+            # count gaps for entropy 
+            for res in list(char_set) + ["-"]:
                 vec.append(counter[res]/float(denom))
             LOG.debug("vec=%s denom=%s counter=%s" % (vec, denom, counter))
             entropy_per_col.append(shannon_entropy(vec))
+            seqid_per_col.append(seqid(counter))
 
-        seqid_per_col.append(seqid(counter))
 
         # due to the fact that we keep all values (which is actually
         # not necessary but would come in handy if values were
         # precalculated) we cannot simply continue or there would be
         # some missing. 'continue/next' here if needed.
-        if map_to_seq and map_to_seq[cidx] in bioutils.GAP_CHARS:
+        if map_to_seq and map_to_seq[cidx] in GAP_CHARS:
             LOG.debug("Skipping col %d because map_to_seq has gap there." % (cidx+1))
             continue
 
