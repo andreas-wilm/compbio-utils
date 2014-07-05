@@ -1,7 +1,7 @@
 compbio-utils
 =============
 
-Miscellaneous bioinfo scripts.
+Miscellaneous, very simple bioinfo scripts.
 
-Use at your own risk
+Use at your own risk. Also contains old and broken stuff.
 
