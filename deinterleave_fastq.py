@@ -151,5 +151,6 @@ def main():
 
 
 if __name__ == "__main__":
+    sys.stderr.write("WARNING: This copy is not maintained anymore. Use the one hosted on https://github.com/CSB5/misc-scripts if in doubt\n")
     main()
     LOG.info("Successful program exit")

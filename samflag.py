@@ -42,7 +42,8 @@ def explain_samflag(flag):
 def main():
     """main function
     """
-
+    sys.stderr.write("WARNING: This copy is not maintained anymore. Use the one hosted on https://github.com/CSB5/misc-scripts if in doubt\n")
+    
     if '-h' in sys.argv:
         sys.stderr.write("Usage %s [flag]:\n" % (os.path.basename(sys.argv[0])))
         sys.stderr.write("Expects SAM flag as int as only argument."

@@ -1,5 +1,8 @@
 #!/bin/bash
-
+  
+  
+echo "WARNING: This copy is not maintained anymore. Use the one hosted on https://github.com/CSB5/misc-scripts if in doubt" 1>&2
+    
 # Author: Andreas Wilm <andreas.wilm@gmail.com>
 # License: WTFPL http://www.wtfpl.net/
 

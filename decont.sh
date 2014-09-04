@@ -1,5 +1,9 @@
 #!/bin/bash
 
+
+echo "WARNING: use https://github.com/CSB5/misc-scripts/blob/master/bwamem_pe.sh instead"  1>&2
+exit 1
+
 set -o pipefail
 
 # Decontaminate FastQ (single-end, paired-end, optionally gzipped) by
@@ -76,6 +80,7 @@ fi
 reusebam=""
 reffa=""
 fastq1=""
+fastq2=""
 while [ "$1" != "" ]; do
     case $1 in
         -f | --fastq1 )
@@ -154,7 +159,7 @@ echoinfo "Using temp dir $tmpdir"
 # set first batch of output file names that we need early on
 contbam=${outprefix}_cont.bam
 fastq_clean_1=${outprefix}_1.fastq
-if [ ! -z $fastq2 ]; then
+if [ ! -z "$fastq2" ]; then
     fastq_clean_2=${outprefix}_2.fastq
 fi
 
@@ -223,7 +228,7 @@ echoinfo "BWA aln done"
 bwa_samse_extra_args=""
 bwa_sampe_extra_args="-s"
 # -s disable Smith-Waterman for the unmapped mate
-if [ -z $fastq2 ]; then
+if [ -z "$fastq2" ]; then
     args="samse $bwa_samse_extra_args $reffa $sais $fastq1"
     # remove unmapped reads from single end mapping
 else
@@ -248,17 +253,11 @@ echoinfo "BWA sam[sp]e done"
 # STEP 3: split into contaminated reads (BAM) and clean FastQ
 # --------------------------------------------------------------------
 
-# Not using samtools view with -f/-F (0x4 segment unmapped, 0x8 next
-# segment in the template unmapped), but awk to save one reading
-# operation and also the following reason: In case of PE reads, we
-# consider clean if neither read nor mate are mapped read 0x4 and mate
-# 0x8 unmapped. Note, samtools view -f 12 (note: not 0x12!) does not
-# allow for mapped reads and unmapped mates and vice versa. At the
-# same time you can give -F/-f only once to samtools. Another
-# advantage of using awk is that you can avoid a nasty BWA bug, which
-# results in inconsistent mate-pair info. See
-# http://www.biostars.org/p/60100/ and
-# http://www.biostars.org/p/60001/
+# In case of PE reads, we consider clean if neither read nor mate are
+# mapped you can give -F/-f only once to samtools). Another advantage
+# of using awk is that you can avoid a nasty BWA bug, which results in
+# inconsistent mate-pair info. See http://www.biostars.org/p/60100/
+# and http://www.biostars.org/p/60001/
 #
 # Use picard for bam2fastq because it's extra pedantic. Good
 # alternative would be
@@ -272,7 +271,7 @@ echoinfo "BWA sam[sp]e done"
 
 # setup fifos
 fastq_clean_1_fifo=$tmpdir/$(basename $fastq_clean_1 fastq)fifo
-if [ ! -z $fastq2 ]; then
+if [ ! -z "$fastq2" ]; then
     fastq_clean_2_fifo=$tmpdir/$(basename $fastq_clean_2 fastq)fifo
 fi
 contbam_fifo=$tmpdir/$(basename $contbam bam)fifo
@@ -285,18 +284,21 @@ done
 execlog=${outprefix}_decont-exec.log
 samtools view -bS - < $contbam_fifo > $contbam 2>>$execlog &
 gzip < $fastq_clean_1_fifo > ${fastq_clean_1}.gz 2>>$execlog &
-if [ -z "$fastq2" ] && [ ! -s "$allbam" ]; then
-    echofatal "Filtering for SE reads not yet implemented (awk cmd)"
-    exit 1
+if [ -z "$fastq2" ]; then
+# && [ ! -s "$allbam" ]; then
+    echoinfo "SE mode"
 else
+    echoinfo "PR mode"
     gzip < $fastq_clean_2_fifo > ${fastq_clean_2}.gz 2>>$execlog &
     samtofastq_pe_arg="SECOND_END_FASTQ=$fastq_clean_2_fifo"
 fi
+
+
 echoinfo "Splitting into contaminated BAM and clean fastq..."
 samtools view -h $allbam 2>>$execlog | \
     awk -v fifo=$contbam_fifo 'BEGIN {FS="\t"; OFS="\t"}
 {if (/^@/ && substr($2, 3, 1)==":") {print >> fifo; next}
-if (and($2, 0x4) && and($2, 0x8) && $3=="*") {print} else {print >> fifo}}' | \
+if (( (!and($2, 0x1) && and($2, 0x4)) || (and($2, 0x1) && (and($2, 0x4) || and($2, 0x8))) ) && $3=="*") {print} else {print >> fifo}}' | \
     java -jar $picard_samtofastq_jar \
         VERBOSITY=ERROR QUIET=TRUE \
         INCLUDE_NON_PF_READS=true VALIDATION_STRINGENCY=LENIENT \
