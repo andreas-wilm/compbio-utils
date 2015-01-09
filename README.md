@@ -3,5 +3,8 @@ compbio-utils
 
 Miscellaneous bioinfo scripts.
 
-Use at your own risk
+Some stuff will be broken, some too old to be useful, some orphaned.
+
+Use at your own risk!
+
 
