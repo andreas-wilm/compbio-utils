@@ -3,7 +3,7 @@
 """
 
 # --- standard library imports
-import os
+import os, sys
 import argparse
 
 # --- third party import
@@ -26,23 +26,29 @@ def main():
                         " or any field name from vcf INFO.")
     args = parser.parse_args()
 
-    assert os.path.exists(args.vcf), (
-        "Non-existing file %s" % args.vcf)
-        
     if args.value == "QUAL":
-        extract_func = lambda v: v.QUAL
+        def extract_func(var):
+            """Extract quality value taken case of missing values"""
+            if not var.QUAL and  var.QUAL != 0:
+                return "."
+            else:
+                return var.QUAL
     else:
         def extract_func(var):
             """Extract value from vcf INFO field"""
             val = var.INFO[args.value]
-            if isinstance(val, bool):
-                return val
-            else:
-                # iterate in case this was a list. requires bool check above
+            if isinstance(val, list):
                 return ','.join([str(x) for x in var.INFO[args.value]])
+            else:
+                return val
 
-    vcfreader = vcf.VCFReader(filename=args.vcf)
-    
+    if args.vcf == "-":
+        vcfreader = vcf.VCFReader(sys.stdin)
+    else:
+        assert os.path.exists(args.vcf)
+        vcfreader = vcf.VCFReader(filename=args.vcf)
+        
+        
     for var in vcfreader:
         print extract_func(var)
 
