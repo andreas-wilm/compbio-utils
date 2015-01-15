@@ -1,4 +1,6 @@
 #!/bin/env python
+"""Add quality to varscan's vcf file
+"""
 
 import sys
 from lofreq import utils
@@ -12,7 +14,7 @@ try:
         if vcf.endswith(".gz"):
             fh = gzip.open(vcf)	
         else:
-            fh = open(fh)
+            fh = open(vcf)
 except IndexError:
     fh = sys.stdin
     
