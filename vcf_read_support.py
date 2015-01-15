@@ -4,7 +4,7 @@ to whether they support a variant or the reference.
 
 Output SAM with extra tag key:Z:chr:pos:ref>alt where chr, pos, ref
 and alt correspond to the variant of question. For reads supporting
-variants key is 'VV', for those supporting the reference it's VR,
+variants key is 'vv', for those supporting the reference it's 'vr',
 otherwise the read will not be written
 """
 
@@ -112,8 +112,19 @@ def simple_vcf_reader(fh):
             qual = int(qual)
         except:
             qual = "."
-        info = dict([field.split('=') for field in info.split(';')])
-        yield Variant(chrom, pos, id, ref, alt, qual, filter, info)
+        info_d = dict()
+        for field in info.split(';'):
+            kv = field.split('=')
+            # boolean entries get True as value
+            if len(kv)==1:
+                info_d[kv[0]] = True
+            else:
+                info_d[kv[0]] = kv[1]
+        #try:
+        #    info = dict([field.split('=') for field in info.split(';')])
+        #except ValueError:
+        #    import pdb; pdb.set_trace()
+        yield Variant(chrom, pos, id, ref, alt, qual, filter, info_d)
         
         
 def main():
@@ -226,9 +237,9 @@ def main():
             # http://www.ngcrawford.com/2012/04/17/python-adding-read-group-rg-tags-to-bam-or-sam-files/
 
             if has_ref:
-                var_tag_key = 'VR'
+                var_tag_key = 'vr'
             elif has_var:
-                var_tag_key = 'VV'
+                var_tag_key = 'vv'
             else:
                 continue# paranoia (already handled above)
             assert var_tag_key not in [t[0] for t in r.tags], (
