@@ -27,6 +27,13 @@ for line in fh:
         pv = float(fields[9].split(':')[pv_idx])
         q = utils.prob_to_phredqual(pv)
         line = line.replace('.\tPASS', '%d\tPASS' % q)
+        
+        af_idx = fields[8].split(':').index("FREQ")
+        af_str = fields[9].split(':')[af_idx]
+        assert af_str[-1] == "%"
+        af = float(af_str[:-1])/100.0
+        line = line.replace('ADP=', 'AF=%.4f;ADP=' % af)
+        
         print line,
 if fh != sys.stdin:
     fh.close()
