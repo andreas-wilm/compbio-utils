@@ -94,8 +94,7 @@ def cmdline_parser():
 
 
 def simple_vcf_reader(fh):
-    """yields Variant (chromosome and position only) for variants
-    listed in vcf file
+    """yields variants listed in vcf file as 'Variant'
     """
 
     for line in fh:
@@ -125,7 +124,14 @@ def simple_vcf_reader(fh):
         #except ValueError:
         #    import pdb; pdb.set_trace()
         yield Variant(chrom, pos, id, ref, alt, qual, filter, info_d)
-        
+
+#def simple_vcf_write(var):
+#    """write Variant as vcf entry"""
+#    c2f = "\t".join([var.chrom, "%d" % (var.pos+1), var.id, var.ref, var.alt, "%s" % (var.qual), var.filter]
+#    # FIXME handle True values
+#    info = ";".join(["%s=%s" % (k,v) for (k,v) in var.info.items()])
+#    return "%s\t%s" % (c2f, info)
+                
         
 def main():
     """The main function
