@@ -49,6 +49,6 @@ if __name__ == "__main__":
         outprefix = sys.argv[2]
         splitevery = int(sys.argv[3])
     except IndexError:
-        sys.stderr.write("Usage: %s in.bam outprefix splitevery\n", os.path.basename[sys.argv[0]])
+        sys.stderr.write("Usage: %s in.bam outprefix splitevery\n", os.path.basename(sys.argv[0]))
         sys.exit(1)
     main(bam_in, outprefix, splitevery)
