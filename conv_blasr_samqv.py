@@ -34,10 +34,11 @@ def conv_read(r):
     
     # pacbio's base qualities are mergers of all qualities. 
     # we want subst quals instead
-    dtags['qo'] = r.qual# save original
-    qual = r.qual
-    qual = dtags['qs']
-    r.qual = qual
+    if False:
+        dtags['qo'] = r.qual# save original
+        qual = r.qual
+        qual = dtags['qs']
+        r.qual = qual
     
     r.tags = dtags.items()
     
