@@ -19,6 +19,14 @@ def main():
                         required="True",
                         dest="vcf",
                         help="VCF file to read (- for stdin)")
+    parser.add_argument("-a", "--all",
+                        dest="ign_filter",
+                        help="Use all, not just passed variants")
+    choices = ['SNV', 'INDEL']
+    parser.add_argument("-t", "--type",
+                        dest="type",
+                        choices=choices,
+                        help="Only work on this type of variants (one of %s)" % (','.join(choices)))
     parser.add_argument("-v", "--value",
                         dest="value",
                         required=True,
@@ -46,10 +54,18 @@ def main():
         vcfreader = vcf.VCFReader(sys.stdin)
     else:
         assert os.path.exists(args.vcf)
-        vcfreader = vcf.VCFReader(filename=args.vcf)
-        
+        vcfreader = vcf.VCFReader(filename=args.vcf)        
         
     for var in vcfreader:
+        if not args.ign_filter and var.FILTER:
+            #print "Skipping filtered %s" % str(var)
+            continue
+        if args.type == 'INDEL' and not var.is_indel:
+            #print "Skipping non-INDEL %s" % var
+            continue
+        if args.type == 'SNV' and not var.is_snp:
+            #print "Skipping non-SNV %s " % var
+            continue
         print extract_func(var)
 
 if __name__ == "__main__":
