@@ -30,6 +30,9 @@ def main():
     
     parser = argparse.ArgumentParser()
     default = 10
+    parser.add_argument("--counts",
+                        action="store_true",
+                        help="Report counts/frequenies instead of binning")
     parser.add_argument("--bins",
                         type=int,
                         default=default,
@@ -62,14 +65,21 @@ def main():
     if fh != sys.stdin:
         fh.close()
 
-    bin_range = (args.min if args.min!=None else arr.min(), 
-                 args.max if args.max!=None else arr.max())
-    (hist, bin_edges) = numpy.histogram(arr, bins=args.bins, range=bin_range)
-    print "#lower bound\tupper bound\tcounts"
-    print "#note: all but last (righthand-most) bin are half-open, i.e. [...)"
-    for (i, val) in enumerate(hist):
-        print "%f\t%f\t%d" % (bin_edges[i], bin_edges[i+1], val)
-    
+    if not args.counts:
+        bin_range = (args.min if args.min!=None else arr.min(), 
+                     args.max if args.max!=None else arr.max())
+        (hist, bin_edges) = numpy.histogram(arr, bins=args.bins, range=bin_range)
+        print "#lower bound\tupper bound\tcounts"
+        print "#note: all but last (righthand-most) bin are half-open, i.e. [...)"
+        for (i, val) in enumerate(hist):
+            print "{}\t{}\t{}".format(bin_edges[i], bin_edges[i+1], val)
+    else:
+        unique, counts = numpy.unique(arr, return_counts=True)
+        for (u, c) in zip(unique, counts):
+            print "{}\tx\t{}".format(c, u)
+        #print numpy.asarray((unique, counts)).T
+
+
     
 
 if __name__ == "__main__":
