@@ -31,18 +31,20 @@ def conv_read(r):
     bd = dtags['qd'][1:] + '#'
     dtags['BI'] = bi
     dtags['BD'] = bd
-    
+
+
     # pacbio's base qualities are mergers of all qualities. 
     # we want subst quals instead
-    if False:
+    if True:
         dtags['qo'] = r.qual# save original
         qual = r.qual
         qual = dtags['qs']
         r.qual = qual
     
     r.tags = dtags.items()
-    
-    
+    # FIXME pysam bug: rg:z: to rg:a:
+    # use set_tag instead
+
 def main(sam_in, sam_out):
     """main function"""
     
@@ -53,6 +55,7 @@ def main(sam_in, sam_out):
         conv_read(r)
         #print "AFTER"
         sam_out.write(r)
+        #sys.stderr.write("DEBUG exit\n"); sys.exit(1)
         
     
     
@@ -65,7 +68,7 @@ if __name__ == "__main__":
     
     samfile_out = sys.argv[2]
     if samfile_out == "-":
-        mode = "w"
+        mode = "wb"
     else:
         assert not os.path.exists(samfile_out)
         mode = "wb"
