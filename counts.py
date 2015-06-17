@@ -30,13 +30,13 @@ def main():
     
     parser = argparse.ArgumentParser()
     default = 10
-    parser.add_argument("--counts",
+    parser.add_argument("--hist",
                         action="store_true",
-                        help="Report counts/frequenies instead of binning")
+                        help="Report histogram instead of counts/frequencies")
     parser.add_argument("--bins",
                         type=int,
                         default=default,
-                        help="Number of equal-width bins"
+                        help="Number of equal-width bins (--hist only)"
                         " (default %d)" % default)
     parser.add_argument("--min",
                         type=float,
@@ -65,7 +65,8 @@ def main():
     if fh != sys.stdin:
         fh.close()
 
-    if not args.counts:
+
+    if args.hist:
         bin_range = (args.min if args.min!=None else arr.min(), 
                      args.max if args.max!=None else arr.max())
         (hist, bin_edges) = numpy.histogram(arr, bins=args.bins, range=bin_range)
@@ -75,8 +76,9 @@ def main():
             print "{}\t{}\t{}".format(bin_edges[i], bin_edges[i+1], val)
     else:
         unique, counts = numpy.unique(arr, return_counts=True)
+        print "#count\tvalue"
         for (u, c) in zip(unique, counts):
-            print "{}\tx\t{}".format(c, u)
+            print "{}\t{}".format(c, u)
         #print numpy.asarray((unique, counts)).T
 
 

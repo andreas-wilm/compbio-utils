@@ -26,7 +26,8 @@ def strelka_indel_af(vcf_file):
     else:
         assert os.path.exists(vcf_file)
         vcfreader = vcf.VCFReader(filename=vcf_file)
-        
+
+    # NOTE: pyvcf swallows first line, i.e. expects a header!
     print "CHROM\tPOS\t{}".format('\t'.join(vcfreader.samples))
     for var in vcfreader:
         assert var.is_indel
@@ -43,6 +44,6 @@ def strelka_indel_af(vcf_file):
 
 
 if __name__ == "__main__":
-    assert len(sys.argv)==2, ("Need strelka vcf as input")
+    assert len(sys.argv)==2, ("Need strelka *somatic.indels.vcf[.gz] as input")
     vcf_file = sys.argv[1]
     strelka_indel_af(vcf_file)
