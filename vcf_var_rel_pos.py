@@ -23,6 +23,11 @@ def main(ann_vcf, scale=1000):
             "CDS annotation in ANN INFO field of {} not found".format(ann_vcf))
         raise
     for var in vcfr:
+        if not var.INFO.has_key('ANN'):
+            sys.stderr.write(
+                "WARNING: {}:{} has not anntation key in INFO field. Skipping...\n".format(
+                    var.CHROM, var.POS, ann_vcf))
+            continue
         for ann in var.INFO['ANN']:
             cds_info = ann.split('|')[cds_idx]
             if not cds_info:
