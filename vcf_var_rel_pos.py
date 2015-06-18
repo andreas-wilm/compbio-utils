@@ -4,6 +4,7 @@
 """
 
 import sys
+from math import ceil
 
 import vcf
 
@@ -13,8 +14,12 @@ def main(ann_vcf, scale=1000):
     """
 
     print "#CHROM\tPOS\tRELPOS(MAX={})".format(scale)
-    
-    vcfr = vcf.VCFReader(filename=ann_vcf)
+
+    if ann_vcf == "-":
+        vcfr = vcf.VCFReader(sys.stdin)
+    else:
+        vcfr = vcf.VCFReader(filename=ann_vcf)
+
     try:
         cds_idx = dict(vcfr.infos)['ANN'].desc.split('|').index(
             ' CDS.pos / CDS.length ')
@@ -25,7 +30,7 @@ def main(ann_vcf, scale=1000):
     for var in vcfr:
         if not var.INFO.has_key('ANN'):
             sys.stderr.write(
-                "WARNING: {}:{} has not anntation key in INFO field. Skipping...\n".format(
+                "WARNING: {}:{} has no anntation key in INFO field. Skipping...\n".format(
                     var.CHROM, var.POS, ann_vcf))
             continue
         for ann in var.INFO['ANN']:
@@ -37,7 +42,7 @@ def main(ann_vcf, scale=1000):
                             var.CHROM, var.POS))
             else:
                 pos, length = [int(x) for x in cds_info.split('/')]
-                fake_pos = int(pos / float(length) * scale)
+                fake_pos = int(ceil(pos / float(length) * scale))
                 print "{}\t{}\t{}".format(var.CHROM, var.POS, fake_pos)
                 # only take first matching annotation content into 
                 # account for each var:
