@@ -13,40 +13,48 @@ def main(ann_vcf, scale=1000):
     relative variant positions
     """
 
-    print "#CHROM\tPOS\tRELPOS(MAX={})".format(scale)
+    print "#CHROM\tPOS\tRELPOS(MAX={})\tIMPACT\tGENE".format(scale)
 
     if ann_vcf == "-":
         vcfr = vcf.VCFReader(sys.stdin)
     else:
         vcfr = vcf.VCFReader(filename=ann_vcf)
 
-    try:
-        cds_idx = dict(vcfr.infos)['ANN'].desc.split('|').index(
-            ' CDS.pos / CDS.length ')
-    except:
-        sys.stderr.write(
-            "CDS annotation in ANN INFO field of {} not found".format(ann_vcf))
-        raise
+
+    idx = dict()
+    for (key, pattern) in [('cds', ' CDS.pos / CDS.length '),
+                            ('impact', ' Annotation_Impact '),
+                            ('gene', ' Gene_ID ')]:
+        try:
+            idx[key] = dict(vcfr.infos)['ANN'].desc.split('|').index(pattern)
+            #sys.stderr.write("DEBUG: idx[{}]={}\n".format(key, idx[key]))
+        except:
+            sys.stderr.write(
+                "{} annotation in ANN INFO field of {} not found".format(key, ann_vcf))
+            raise
+                   
     for var in vcfr:
         if not var.INFO.has_key('ANN'):
             sys.stderr.write(
-                "WARNING: {}:{} has no anntation key in INFO field. Skipping...\n".format(
+                "WARNING: {}:{} has no annotation key in INFO field. Skipping...\n".format(
                     var.CHROM, var.POS, ann_vcf))
             continue
+        #if len(var.INFO['ANN'])>1: sys.stderr.write("DEBUG: >1 ANN for {}".format(var))
+        # printed once per annotation
         for ann in var.INFO['ANN']:
-            cds_info = ann.split('|')[cds_idx]
-            if not cds_info:
+            info = dict()
+            for k in idx.keys():
+                info[k] = ann.split('|')[idx[k]]
+                #sys.stderr.write("DEBUG: info[{}]={}\n".format(k, info[k]))
+            if not info['cds']:
                 if not 'intergenic_region' in ann:
                     sys.stderr.write(
                         "No CDS info found for var {}:{} but not intergenic\n".format(
                             var.CHROM, var.POS))
             else:
-                pos, length = [int(x) for x in cds_info.split('/')]
+                pos, length = [int(x) for x in info['cds'].split('/')]
                 fake_pos = int(ceil(pos / float(length) * scale))
-                print "{}\t{}\t{}".format(var.CHROM, var.POS, fake_pos)
-                # only take first matching annotation content into 
-                # account for each var:
-                break
+                print "{}\t{}\t{}\t{}\t{}".format(var.CHROM, var.POS, fake_pos, info['impact'], info['gene'])
     
 if __name__ == "__main__":
     main(sys.argv[1])
