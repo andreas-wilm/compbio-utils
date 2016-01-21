@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from __future__ import print_function
+
 """Decode ASCII-encoded phred scores.
 
 Can replace certain columns with decoded values and leave the rest. Try e.g.
@@ -63,23 +65,23 @@ def main():
     for line in fh:
         line = line.rstrip()
         if not len(line):
-            print
+            print()
             continue
         if not args.col:
             enc_quals = line
             dec_quals = decode_phred(enc_quals, args.qualenc)
-            print ' '.join(["%s" % q for q in dec_quals])
+            print(' '.join(["%s" % q for q in dec_quals]))
         else:
             for (idx, col) in enumerate(line.split('\t')):
                 if idx > 0:
-                    print "\t",
+                    print("\t", end="")
                 if idx+1 not in args.col:
-                    print col,
+                    print(col, end="")
                 else:
                     enc_quals = col
                     dec_quals = decode_phred(enc_quals, args.qualenc)
-                    print ' '.join(["%s" % q for q in dec_quals]),
-        print                    
+                    print(' '.join(["%s" % q for q in dec_quals]), end="")
+        print()                    
     if fh != sys.stdin:
         fh.close()
                     
