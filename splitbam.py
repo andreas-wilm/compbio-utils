@@ -1,8 +1,5 @@
 #!/usr/bin/env python
-"""Split name sorted PE bam randomly into two files keeping pairing intact
-
-create input with like:
-$ samtools sort -n -@ 8 coord-sorted.bam name-sorted
+"""Split BAM file
 """
 
 
