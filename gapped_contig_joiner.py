@@ -1,7 +1,9 @@
 #!/usr/bin/env python
-"""Take contigs and orient them accordint to a reference using Mummer.
-Optionally fill in the missing bits with the reference itself instead
-of Ns """
+"""Stitch contigs together by means of Mummer's nucmer using given
+reference. Gaps can optionally be filled with reference instead of Ns
+
+"""
+
 
 #--- standard library imports
 #
@@ -42,6 +44,8 @@ __license__ = ""
 __credits__ = [""]
 __status__ = ""
 
+
+sys.stderr.write("DEPRECATION WARNING: use https://github.com/andreas-wilm/simple-contig-joiner\n")
 
 
 # http://docs.python.org/library/logging.html
@@ -124,16 +128,14 @@ def main():
 
     for fname in [opts.fref, opts.fcontigs]:
         if not os.path.exists(fname):
-            LOG.fatal(
-                "file '%s' does not exist.\n" % fname)
+            LOG.fatal("file '%s' does not exist.\n" % fname)
             sys.exit(1)
 
     if not opts.fout:
         parser.error("Fasta output file argument missing.")
         sys.exit(1)
     if os.path.exists(opts.fout):
-        LOG.fatal(
-            "Refusing to overwrite existing file '%s'." % opts.fout)
+        LOG.fatal("Refusing to overwrite existing file '%s'." % opts.fout)
         sys.exit(1)
         
 
