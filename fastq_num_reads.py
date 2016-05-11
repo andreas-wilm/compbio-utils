@@ -37,24 +37,32 @@ def fastq_num_reads(fastq):
     """Determine number of reads in fastq file"""
     fastqc_data = fastqdata_from_fastq(fastq)
     if fastqc_data:
+        #sys.stderr.write("DEBUG: is fastqc\n")
         with open(fastqc_data) as fh:
             for line in fh:
                 if line.startswith("Total Sequences"):
                     return int(line.split()[-1])
         raise ValueError(fastqc_data)
     else:
+        #sys.stderr.write("DEBUG: count fastq.gz\n")
         if fastq.endswith(".gz"):
             # gzip speedup with io.BufferedReader
             # see http://aripollak.com/pythongzipbenchmarks/
             # and http://www.reddit.com/r/Python/comments/2olhrf/fast_gzip_in_python/
             fh = io.BufferedReader(gzip.open(fastq))
         else:
+            #sys.stderr.write("DEBUG: count fastq\n")
             fh = open(fastq)
         num_lines = 0
         for line in fh:
             num_lines += 1
             if num_lines % 4 == 1:
-                assert line[0] == '@'
+                # bytes or string?
+                if isinstance(line, bytes):
+                    c = line.decode()[0]
+                else:
+                    c = line[0]
+                assert c == '@'
         fh.close()
         assert num_lines % 4 == 0
         return num_lines/4
@@ -65,5 +73,5 @@ if __name__ == "__main__":
         if not os.path.exists(f):
             warn("non-existant file {}".format(f))
             continue
-        print "{}\t{}".format(f, fastq_num_reads(f))
+        print("{}\t{}".format(f, fastq_num_reads(f)))
         
